@@ -33,6 +33,21 @@ const MessageItem: React.FC<{
     const x = useMotionValue(0);
     const ACTION_WIDTH = 80;
 
+    const getStatus = (m: InboxMessage): 'success' | 'error' | 'warning' | 'info' => {
+        const t = m.title.toLowerCase();
+        if (m.type === 'order') {
+            if (t.includes('shipped') || t.includes('delivered') || t.includes('completed')) return 'success';
+            if (t.includes('cancel') || t.includes('failed') || t.includes('disputed') || t.includes('refunded')) return 'error';
+            return 'info';
+        }
+        if (m.type === 'promo') return 'warning';
+        if (m.type === 'system') return 'info';
+        return 'info';
+    };
+    const status = getStatus(message);
+    const accentBorder = status === 'success' ? 'border-l-4 border-feedback-success' : status === 'error' ? 'border-l-4 border-feedback-error' : status === 'warning' ? 'border-l-4 border-feedback-warning' : 'border-l-4 border-border-primary';
+    const statusChip = status === 'success' ? 'text-feedback-success bg-feedback-success/10' : status === 'error' ? 'text-feedback-error bg-feedback-error/10' : status === 'warning' ? 'text-feedback-warning bg-feedback-warning/10' : 'text-text-secondary bg-bg-tertiary';
+
     const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: any) => {
         const offset = info.offset.x;
         const velocity = info.velocity.x;
@@ -61,7 +76,7 @@ const MessageItem: React.FC<{
                 dragElastic={0.1}
                 style={{ x }}
                 onDragEnd={handleDragEnd}
-                className="relative bg-bg-secondary rounded-xl shadow cursor-grab active:cursor-grabbing"
+                className={`relative bg-bg-secondary rounded-xl shadow cursor-grab active:cursor-grabbing ${accentBorder}`}
             >
                 <div onClick={() => onClick(message)} className="flex items-center space-x-4 p-4">
                     <MessageTypeIcon type={message.type} />
@@ -72,6 +87,9 @@ const MessageItem: React.FC<{
                         </div>
                         <p className="text-sm text-text-secondary truncate">{message.body}</p>
                     </div>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusChip}`}>
+                        {status === 'success' ? 'Success' : status === 'error' ? 'Alert' : status === 'warning' ? 'Promo' : 'Info'}
+                    </span>
                     {!message.isRead && (
                         <div className="w-3 h-3 bg-brand-primary rounded-full flex-shrink-0 ml-2" title="Unread"></div>
                     )}

@@ -40,7 +40,7 @@ const ProductCard: React.FC<ProductCardProps> = memo(({ product, user, isAd = fa
         e.preventDefault(); // Prevent navigating when clicking the button
         e.stopPropagation();
         if (user.isGuest) {
-            showToast("This feature is disabled in Guest Mode. Please create an account to continue.");
+            showToast("This feature is disabled in Guest Mode. Please create an account to continue.", 'warning');
             navigate('/onboarding');
             return;
         }
@@ -55,7 +55,7 @@ const ProductCard: React.FC<ProductCardProps> = memo(({ product, user, isAd = fa
         e.preventDefault();
         e.stopPropagation();
         if (user.isGuest) {
-            showToast("This feature is disabled in Guest Mode. Please create an account to continue.");
+            showToast("This feature is disabled in Guest Mode. Please create an account to continue.", 'warning');
             navigate('/onboarding');
             return;
         }

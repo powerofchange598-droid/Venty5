@@ -12,6 +12,7 @@ const MerchantSideNav: React.FC = memo(() => {
         { path: '/merchant/dashboard', icon: ChartBarIcon, label: 'Dashboard' },
         { path: '/merchant/products', icon: CubeIcon, label: 'Products' },
         { path: '/merchant/orders', icon: ShoppingBagIcon, label: 'Orders' },
+        { path: '/messages', icon: ChatBubbleLeftRightIcon, label: 'Messages' },
         { path: '/merchant/store-setup', icon: PaintBrushIcon, label: 'Store setup' },
         { path: '/marketing', icon: MegaphoneIcon, label: 'Marketing' },
         { path: '/settings', icon: Cog6ToothIcon, label: 'Settings' },

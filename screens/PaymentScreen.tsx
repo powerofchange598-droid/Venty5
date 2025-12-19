@@ -160,35 +160,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ user, onPaymentSuccess })
             navigate('/dashboard');
             return;
         }
-        const hash = window.location.hash || '';
-        const qs = hash.includes('?') ? hash.split('?')[1] : '';
-        const params = new URLSearchParams(qs);
-        const isReturn = params.get('paypalReturn') === '1';
-        const isCancel = params.get('paypalCancel') === '1';
-        const token = params.get('token'); // PayPal returns token=orderId
-        if (isCancel) {
-            setErrorMsg('Payment was cancelled. You can try again or contact support.');
-            return;
-        }
-        if (isReturn && token) {
-            (async () => {
-                try {
-                    const backendEnv: string = (import.meta as any).env?.VITE_PAYPAL_BACKEND_URL || '';
-                    const backend: string = window.location.protocol === 'https:' ? '' : backendEnv;
-                    const resp = await fetch(`${backend}/api/paypal/order/${token}/capture`, { method: 'POST' });
-                    const data = await resp.json();
-                    if (!resp.ok || !data.ok) {
-                        const errText = typeof data.error === 'string' ? data.error : (data.error?.message || data.error?.name || 'capture_failed');
-                        throw new Error(errText);
-                    }
-                    setShowConfirmation(true);
-                    onPaymentSuccess({ ...location.state, amount, method: 'paypal', gateway: 'paypal', orderId: token, details: data.data });
-                } catch (e) {
-                    setErrorMsg(`${(e as any)?.message || 'Payment capture failed. Please retry or contact support.'}`);
-                }
-            })();
-        }
-    }, [location.state, navigate, amount, onPaymentSuccess]);
+    }, [location.state, navigate]);
 
     useEffect(() => {
         (async () => {

@@ -27,8 +27,9 @@ const SideNav: React.FC<SideNavProps> = memo(({ user, isPremiumUser }) => {
     if (!user.isGuest) {
         navItems.push({ path: '/exchange', icon: ArrowsRightLeftIcon, label: 'Exchange' });
     }
+    navItems.push({ path: '/messages', icon: ChatBubbleLeftRightIcon, label: 'Messages' });
 
-    navItems.push({ path: '/settings', icon: Cog6ToothIcon, label: 'Settings' });
+    // Removed Settings from main nav; Settings is accessible via profile row only.
 
 
     return (
@@ -57,19 +58,23 @@ const SideNav: React.FC<SideNavProps> = memo(({ user, isPremiumUser }) => {
                 </div>
             </nav>
             <div className="mt-auto p-4 border-t border-border-primary">
-                <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-bg-tertiary transition-colors cursor-pointer">
+                <NavLink
+                    to="/settings"
+                    className="flex items-center gap-3 p-2 rounded-xl hover:bg-bg-tertiary transition-colors"
+                >
                     <div className="w-10 h-10 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-bold text-lg">
                         {user.name.charAt(0)}
                     </div>
                     <div className="min-w-0">
                         <p className="font-bold text-sm text-text-primary flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-text-secondary">Settings</span>
                             <span className="truncate">{user.name}</span>
                             {user.isVerified && <VerifiedBadge user={user} />}
                         </p>
                         {isPremiumUser && <PremiumBadge />}
                         <p className="text-xs text-text-secondary truncate">{user.email}</p>
                     </div>
-                </div>
+                </NavLink>
             </div>
         </aside>
     );

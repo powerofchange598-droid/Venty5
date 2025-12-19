@@ -25,33 +25,31 @@ const MerchantBottomNav: React.FC<MerchantBottomNavProps> = ({ user }) => {
 
     const morePaths = ['/settings', '/marketing', '/merchant/store-setup'];
 
+    const isActiveMore = location.pathname === '/more' || morePaths.some(p => location.pathname.startsWith(p));
     return (
-        <nav className="bottom-nav-glass lg:hidden">
-            <ul>
-                {primaryNavItems.map((item) => (
-                    <li key={item.path}>
-                        <NavLink
-                            to={item.path}
-                             className={({ isActive }) => {
-                                if (isActive && item.path !== '/more') return 'active';
-                                if (item.path === '/more' && (isActive || morePaths.some(p => location.pathname.startsWith(p)))) {
-                                    return 'active';
-                                }
-                                return '';
-                            }}
-                        >
-                            <div className="relative">
-                                <item.icon />
-                                {item.badge && item.badge > 0 && (
-                                     <span className="absolute -top-1 -right-2 block h-4 w-4 rounded-full bg-feedback-error text-white text-[10px] flex items-center justify-center">
-                                        {item.badge}
-                                    </span>
-                                )}
-                            </div>
-                            <span>{item.label}</span>
-                        </NavLink>
-                    </li>
-                ))}
+        <nav className="lg:hidden bg-bg-secondary border-t border-border-primary pb-[env(safe-area-inset-bottom)] fixed bottom-0 left-0 right-0 z-50">
+            <ul className="flex justify-around items-center h-16 px-2">
+                {primaryNavItems.map((item) => {
+                    const isActive = item.path === '/more' ? isActiveMore : location.pathname === item.path;
+                    return (
+                        <li key={item.path} className="flex-1">
+                            <NavLink
+                                to={item.path}
+                                className={`flex flex-col items-center gap-1 p-2 w-full min-w-[64px] transition-colors rounded-lg ${isActive ? 'text-brand-primary' : 'text-text-secondary hover:bg-bg-tertiary'}`}
+                            >
+                                <div className="relative">
+                                    <item.icon className="h-6 w-6" />
+                                    {item.badge && item.badge > 0 && (
+                                        <span className="absolute -top-1 -right-2 block h-4 w-4 rounded-full bg-feedback-error text-white text-[10px] flex items-center justify-center">
+                                            {item.badge}
+                                        </span>
+                                    )}
+                                </div>
+                                <span className="text-[10px] font-medium leading-none">{item.label}</span>
+                            </NavLink>
+                        </li>
+                    );
+                })}
             </ul>
         </nav>
     );

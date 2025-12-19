@@ -117,7 +117,7 @@ const ProductDetailScreen: React.FC<{ user: User }> = ({ user }) => {
     const handleAddToCart = () => {
         if (!product) return;
         if (user.isGuest) {
-            showToast("This feature is disabled in Guest Mode. Please create an account to continue.");
+            showToast("This feature is disabled in Guest Mode. Please create an account to continue.", 'warning');
             navigate('/onboarding');
             return;
         }
@@ -131,7 +131,7 @@ const ProductDetailScreen: React.FC<{ user: User }> = ({ user }) => {
     const handleBuyNow = () => {
         if (!product) return;
         if (user.isGuest) {
-            showToast("This feature is disabled in Guest Mode. Please create an account to continue.");
+            showToast("This feature is disabled in Guest Mode. Please create an account to continue.", 'warning');
             navigate('/onboarding');
             return;
         }
@@ -158,7 +158,7 @@ const ProductDetailScreen: React.FC<{ user: User }> = ({ user }) => {
             status
         };
         setAllReviews(prev => [newReview, ...prev]);
-        showToast(status === 'flagged' ? 'Your review has been submitted for moderation.' : 'Thank you for your review!');
+        showToast(status === 'flagged' ? 'Your review has been submitted for moderation.' : 'Thank you for your review!', status === 'flagged' ? 'info' : 'success');
     };
     
     const productImages = useMemo(() => [product?.imageUrl, ...(product?.images || [])].filter(Boolean) as string[], [product]);
@@ -172,7 +172,7 @@ const ProductDetailScreen: React.FC<{ user: User }> = ({ user }) => {
     
     const pageRightAccessory = (
         <button onClick={() => setIsShareModalOpen(true)} className="p-2 rounded-full hover:bg-bg-tertiary">
-            <ShareIcon className="h-6 w-6 text-text-primary" />
+            <ShareIcon className="h-6 w-6 text-brand-primary" />
         </button>
     );
     

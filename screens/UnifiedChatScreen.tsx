@@ -87,7 +87,7 @@ const UnifiedChatScreen: React.FC<UnifiedChatScreenProps> = ({ currentUser }) =>
             console.log(`Security Violation: User ${currentUser.id} attempted to send '${securityCheck.detectedTerm}'. Violation count: ${violations}`);
 
             if (violations > 1) {
-                setInputError("Your ability to send messages has been temporarily restricted due to repeated policy violations.");
+                setInputError("Your ability to send messages has been permanently restricted due to repeated policy violations.");
                 setIsChatDisabled(true);
             } else {
                 setInputError("🚫 التواصل خارج التطبيق غير مسموح. This is your first warning.");

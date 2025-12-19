@@ -1,12 +1,11 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Product, User, MerchantAd, Stock } from '../types';
-import { mockProducts, mockStocks } from '../data/mockData';
+import { Product, User, MerchantAd } from '../types';
+import { subscribeProducts } from '../lib/products';
 import { ShoppingCartIcon, MagnifyingGlassIcon, HeartIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
-import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
 import PageLayout from '../components/PageLayout';
 import ProductCard from '../components/ProductCard';
 import { useCart } from '../hooks/useCart';
@@ -14,9 +13,6 @@ import { useFavourites } from '../hooks/useFavourites';
 import VentyButton from '../components/VentyButton';
 import HorizontalScroller from '../components/HorizontalScroller';
 import AdCarousel from '../components/ads/AdCarousel';
-import { useTheme } from '../hooks/useTheme';
-import { AreaChart, Area, ResponsiveContainer } from 'recharts';
-import { useLocalization } from '../hooks/useLocalization';
 import Card from '../components/Card';
 
 const PRODUCTS_PER_PAGE = 8; // Adjusted for 2-col grid on mobile
@@ -42,7 +38,7 @@ const HeaderIcons: React.FC = () => {
     return (
         <div className="flex items-center space-x-2">
             <Link to="/favourites" className="relative p-2 rounded-full hover:bg-bg-tertiary transition-colors">
-                <HeartIcon className="h-6 w-6 text-text-secondary" />
+                <HeartIcon className="h-6 w-6 text-feedback-error" />
                 {favouritesCount > 0 && (
                     <span className="absolute -top-1 -right-1 block h-4 w-4 rounded-full bg-feedback-error text-white text-[10px] flex items-center justify-center border-2 border-bg-primary">
                         {favouritesCount}
@@ -50,7 +46,7 @@ const HeaderIcons: React.FC = () => {
                 )}
             </Link>
             <Link to="/cart" className="relative p-2 rounded-full hover:bg-bg-tertiary transition-colors">
-                <ShoppingCartIcon className="h-6 w-6 text-text-secondary" />
+                <ShoppingCartIcon className="h-6 w-6 text-brand-primary" />
                 {cartCount > 0 && (
                     <span className="absolute -top-1 -right-1 block h-4 w-4 rounded-full bg-feedback-error text-white text-[10px] flex items-center justify-center border-2 border-bg-primary">
                         {cartCount}
@@ -61,75 +57,7 @@ const HeaderIcons: React.FC = () => {
     );
 };
 
-// --- TRADER MODE COMPONENTS ---
-// ... (StockAdCard and TraderAdsSection remain unchanged, but their grid usage is updated below)
-
-const StockAdCard: React.FC<{ stock: Stock; animation: 'left' | 'right' }> = ({ stock, animation }) => {
-    const { formatCurrency } = useLocalization();
-    const isUp = stock.change >= 0;
-
-    const animationVariants = {
-        hidden: { opacity: 0, x: animation === 'left' ? -100 : 100 },
-        visible: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 100, delay: 0.2 } }
-    };
-    
-    const sparklineColor = isUp ? '#28C76F' : '#E53935';
-
-    return (
-        <motion.div variants={animationVariants} className="h-full">
-            <Card className="cursor-pointer !p-4 flex flex-col h-full">
-                <div className="flex-grow">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="font-bold text-base text-text-primary">{stock.symbol}</p>
-                            <p className="text-xs text-text-secondary truncate max-w-[100px]">{stock.name}</p>
-                        </div>
-                    </div>
-                    <div className="my-3 text-center">
-                        <p className="text-2xl font-bold text-text-primary">{formatCurrency(stock.price)}</p>
-                        <p className={`font-semibold text-xs flex items-center justify-center space-x-1 ${isUp ? 'text-feedback-success' : 'text-feedback-error'}`}>
-                            {isUp ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />}
-                            <span>{formatCurrency(Math.abs(stock.change))} ({stock.changePercent.toFixed(2)}%)</span>
-                        </p>
-                    </div>
-                    <div className="h-12 -mx-4 -mb-2" style={{ minHeight: 48 }}>
-                        <ResponsiveContainer width="100%" height="100%" minHeight={48} minWidth={0}>
-                            <AreaChart data={stock.sparkline}>
-                                <defs>
-                                    <linearGradient id={`sparkline-gradient-${stock.id}`} x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={sparklineColor} stopOpacity={0.3}/>
-                                        <stop offset="95%" stopColor={sparklineColor} stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <Area type="monotone" dataKey="value" stroke={sparklineColor} strokeWidth={2} fill={`url(#sparkline-gradient-${stock.id})`} />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-                <VentyButton onClick={(e) => { e.preventDefault(); e.stopPropagation(); alert(`Trading ${stock.symbol}...`); }} variant="primary" className="mt-3 !py-1.5 !text-xs">
-                    Trade
-                </VentyButton>
-            </Card>
-        </motion.div>
-    );
-};
-
-const TraderAdsSection: React.FC = () => {
-    const stock1 = mockStocks[0];
-    const stock2 = mockStocks[3];
-
-    return (
-        <motion.div 
-            className="px-4 grid grid-cols-1 sm:grid-cols-2 gap-4"
-            initial="hidden"
-            animate="visible"
-            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
-        >
-            <StockAdCard stock={stock1} animation="left" />
-            <StockAdCard stock={stock2} animation="right" />
-        </motion.div>
-    );
-};
+// Removed stock cards section
 
 
 interface MarketplaceScreenProps {
@@ -139,14 +67,18 @@ interface MarketplaceScreenProps {
 
 const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ user, ads }) => {
     const { t } = useTranslation();
-    const { theme } = useTheme();
-    const [products] = useState<Product[]>(mockProducts);
+    const [products, setProducts] = useState<Product[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState<FilterOption>('forYou');
     const [sortOption, setSortOption] = useState<SortOption>('popular');
     const [visibleCount, setVisibleCount] = useState(PRODUCTS_PER_PAGE);
     
     const displayAds = useMemo(() => ads.filter(ad => ad.status === 'active'), [ads]);
+
+    useEffect(() => {
+        const unsub = subscribeProducts(setProducts);
+        return () => { try { unsub && unsub(); } catch {} };
+    }, []);
     
     const filteredProducts = useMemo(() => {
         let processedProducts = [...products].filter(p => 
@@ -236,9 +168,6 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ user, ads }) => {
                          </div>
                     </div>
                 </div>
-                
-                {theme === 'trader' && <TraderAdsSection />}
-
                 {/* Ad Carousel */}
                 {displayAds.length > 0 && (
                     <div className="px-4">

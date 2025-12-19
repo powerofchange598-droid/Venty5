@@ -87,7 +87,7 @@ const VideoGeneratorModal: React.FC<{
         setError(null);
         setVideoUrl(null);
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const ai = new GoogleGenAI({ apiKey: (import.meta as any).env?.VITE_GOOGLE_API_KEY || '' });
             let operation = await ai.models.generateVideos({
                 model: 'veo-3.1-fast-generate-preview',
                 prompt: prompt,
@@ -102,7 +102,7 @@ const VideoGeneratorModal: React.FC<{
             
             const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
             if (downloadLink) {
-                const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+                const response = await fetch(`${downloadLink}&key=${(import.meta as any).env?.VITE_GOOGLE_API_KEY || ''}`);
                 if (!response.ok) throw new Error(`Failed to download video: ${response.statusText}`);
                 const videoBlob = await response.blob();
                 const objectUrl = URL.createObjectURL(videoBlob);

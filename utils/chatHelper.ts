@@ -86,6 +86,13 @@ export const detectOffPlatformAttempt = (text: string): { blocked: boolean; dete
         }
     }
 
+    // 1.5 Block messages containing bad words outright
+    for (const w of BAD_WORDS) {
+        if (new RegExp(`\\b${w}\\b`, 'i').test(text)) {
+            return { blocked: true, detectedTerm: 'bad language' };
+        }
+    }
+
     // 2. Check for contact info patterns using existing regex
     // Creating local copies to avoid global flag state issues.
     const PHONE_REGEX_LOCAL = new RegExp(PHONE_REGEX.source, 'g');

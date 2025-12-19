@@ -5,7 +5,7 @@ interface VentyButtonProps {
     children?: ReactNode;
     label?: ReactNode;
     onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
-    variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline';
+    variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline' | 'success' | 'warning' | 'info';
     className?: string;
     disabled?: boolean;
     htmlType?: 'button' | 'submit' | 'reset';

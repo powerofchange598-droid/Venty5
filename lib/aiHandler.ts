@@ -17,12 +17,12 @@ export async function runAiChat(
     language: string, 
     isPremium: boolean
 ): Promise<{ text: string }> {
-    if (!process.env.API_KEY) {
-        console.error("Gemini API key not found. Please set the API_KEY environment variable.");
-        return { text: "I'm sorry, the AI assistant is not configured correctly. An API key is missing." };
+    const apiKey = (import.meta as any).env?.VITE_GOOGLE_API_KEY || '';
+    if (!apiKey) {
+        return { text: "AI is not configured. Please set an API key." };
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     
     // The history from TomChatWidget already includes the latest user message.
     const contents = history;

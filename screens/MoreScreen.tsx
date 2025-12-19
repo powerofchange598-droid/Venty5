@@ -50,7 +50,6 @@ const NavItem: React.FC<NavItemProps> = ({ path, onClick, icon: Icon, label }) =
 const MoreScreen: React.FC<MoreScreenProps> = ({ user }) => {
 
     const regularItems: NavItemProps[] = [
-        { path: '/financial-snapshot', icon: ChartBarIcon, label: 'Snapshot' },
         { path: '/goals', icon: SparklesIcon, label: 'Goals' },
         { path: '/payment-methods', icon: BanknotesIcon, label: 'Payment Methods' },
     ];
@@ -58,9 +57,13 @@ const MoreScreen: React.FC<MoreScreenProps> = ({ user }) => {
     if (!user.isGuest) {
         regularItems.unshift({ path: '/my-orders', icon: ShoppingBagIcon, label: 'My Orders' });
         regularItems.unshift({ path: '/messages', icon: ChatBubbleLeftRightIcon, label: 'Messages' });
+        
+        // If family account, Family is on BottomNav, so add Store here.
+        // If NOT family account, Store is on BottomNav, so we don't need it here (or maybe we do? No, usually main nav items aren't duplicated).
         if (user.accountPlan === 'family') {
-            regularItems.push({ path: '/family', icon: UsersIcon, label: 'Family' });
+             regularItems.push({ path: '/market', icon: ShoppingBagIcon, label: 'Store' });
         }
+
         regularItems.push({ path: '/referral', icon: UserPlusIcon, label: 'Refer a Friend' });
     }
     regularItems.push({ path: '/support', icon: QuestionMarkCircleIcon, label: 'Support' });

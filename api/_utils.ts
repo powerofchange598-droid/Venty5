@@ -1,13 +1,12 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import * as jose from 'jose';
+import bcrypt from 'bcryptjs';
+import { getDb } from '../lib/db';
 
 type Identity = { provider: string; providerId: string; email?: string; name?: string; picture?: string };
 type User = { userId: string; email?: string; name?: string; picture?: string; providers: { provider: string; providerUserId: string }[]; passwordHash?: string; createdAt: string };
 
-const USERS_FILE = path.join(process.cwd(), 'server', 'data', 'users.json');
-
 const readBody = async (req: any) => {
+  if (req.body) return req.body;
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
   const raw = Buffer.concat(chunks).toString('utf8');
@@ -16,47 +15,96 @@ const readBody = async (req: any) => {
 
 const getEnv = (k: string) => process.env[k] || '';
 
-const loadUsers = (): User[] => {
-  try {
-    if (!fs.existsSync(USERS_FILE)) return [];
-    const raw = fs.readFileSync(USERS_FILE, 'utf8');
-    return JSON.parse(raw || '[]');
-  } catch {
-    return [];
-  }
+const getUserByEmail = async (email: string): Promise<User | null> => {
+    const db = await getDb();
+    const user = await db.get('SELECT * FROM users WHERE email = ?', email);
+    if (!user) return null;
+    
+    const providers = await db.all('SELECT * FROM providers WHERE user_id = ?', user.id);
+    
+    return {
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        passwordHash: user.password_hash,
+        createdAt: user.created_at,
+        providers: providers.map(p => ({ provider: p.provider, providerUserId: p.provider_user_id }))
+    };
 };
 
-const saveUsers = (users: User[]) => {
-  try {
-    fs.mkdirSync(path.dirname(USERS_FILE), { recursive: true });
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
-  } catch {}
-};
+const upsertUserFromIdentity = async (identity: Identity): Promise<User> => {
+    const db = await getDb();
+    
+    // Check by email or provider
+    let user = await db.get(
+        `SELECT u.* FROM users u 
+         LEFT JOIN providers p ON u.id = p.user_id 
+         WHERE u.email = ? OR (p.provider = ? AND p.provider_user_id = ?)`,
+        [identity.email, identity.provider, identity.providerId]
+    );
 
-const upsertUserFromIdentity = (identity: Identity): User => {
-  const users = loadUsers();
-  let user = users.find(u => (identity.email && u.email === identity.email) || u.providers.some(p => p.provider === identity.provider && p.providerUserId === identity.providerId));
-  if (!user) {
-    const id = `u_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    user = { userId: id, email: identity.email, name: identity.name, picture: identity.picture, providers: [{ provider: identity.provider, providerUserId: identity.providerId }], createdAt: new Date().toISOString() };
-    users.push(user);
-  } else {
-    if (!user.providers.some(p => p.provider === identity.provider && p.providerUserId === identity.providerId)) {
-      user.providers.push({ provider: identity.provider, providerUserId: identity.providerId });
+    if (!user) {
+        // Create new user
+        const id = `u_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        await db.run(
+            'INSERT INTO users (id, email, name, picture, created_at) VALUES (?, ?, ?, ?, ?)',
+            [id, identity.email, identity.name, identity.picture, new Date().toISOString()]
+        );
+        user = { id, email: identity.email, name: identity.name, picture: identity.picture };
+    } else {
+        // Update user details if new info provided
+        if (identity.email && !user.email) await db.run('UPDATE users SET email = ? WHERE id = ?', identity.email, user.id);
+        if (identity.name && !user.name) await db.run('UPDATE users SET name = ? WHERE id = ?', identity.name, user.id);
+        if (identity.picture && !user.picture) await db.run('UPDATE users SET picture = ? WHERE id = ?', identity.picture, user.id);
+        
+        // Refresh user object
+        user = await db.get('SELECT * FROM users WHERE id = ?', user.id);
     }
-    if (identity.email && !user.email) user.email = identity.email;
-    if (identity.name && !user.name) user.name = identity.name;
-    if (identity.picture && !user.picture) user.picture = identity.picture;
-  }
-  saveUsers(users);
-  return user;
+
+    // Upsert provider link
+    await db.run(
+        'INSERT OR IGNORE INTO providers (provider, provider_user_id, user_id) VALUES (?, ?, ?)',
+        [identity.provider, identity.providerId, user.id]
+    );
+
+    const providers = await db.all('SELECT * FROM providers WHERE user_id = ?', user.id);
+
+    return {
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        passwordHash: user.password_hash,
+        createdAt: user.created_at,
+        providers: providers.map(p => ({ provider: p.provider, providerUserId: p.provider_user_id }))
+    };
+};
+
+const updateUserPassword = async (userId: string, passwordHash: string) => {
+    const db = await getDb();
+    await db.run('UPDATE users SET password_hash = ? WHERE id = ?', passwordHash, userId);
+};
+
+const hashPassword = (password: string) => {
+    const salt = bcrypt.genSaltSync(10);
+    return bcrypt.hashSync(password, salt);
+};
+
+const comparePassword = (password: string, hash: string) => {
+    return bcrypt.compareSync(password, hash);
 };
 
 const signSession = async (payload: Record<string, any>) => {
   const secret = getEnv('JWT_SECRET');
   if (!secret) throw new Error('jwt_secret_missing');
   const key = new TextEncoder().encode(secret);
-  const token = await new jose.SignJWT(payload).setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime('7d').sign(key);
+  // Store user data in JWT for stateless auth on Vercel
+  const token = await new jose.SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('7d')
+    .sign(key);
   return token;
 };
 
@@ -85,4 +133,4 @@ const clearSessionCookie = (res: any) => {
   res.setHeader('Set-Cookie', parts.join('; '));
 };
 
-export { readBody, getEnv, loadUsers, saveUsers, upsertUserFromIdentity, signSession, verifySession, setSessionCookie, clearSessionCookie };
+export { readBody, getEnv, getUserByEmail, upsertUserFromIdentity, updateUserPassword, signSession, verifySession, setSessionCookie, clearSessionCookie, hashPassword, comparePassword };

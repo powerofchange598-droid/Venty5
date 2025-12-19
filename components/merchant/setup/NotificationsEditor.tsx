@@ -15,7 +15,7 @@ const NotificationsEditor: React.FC<NotificationsEditorProps> = ({ onSave }) => 
     const { showToast } = useToast();
     const handleSave = () => {
         onSave();
-        showToast('Notification settings saved!');
+        showToast('Notification settings saved!', 'success');
     };
 
     return (
@@ -29,7 +29,7 @@ const NotificationsEditor: React.FC<NotificationsEditorProps> = ({ onSave }) => 
                 </div>
             </Card>
             <div className="flex justify-end gap-2 mt-4">
-                <VentyButton variant="secondary" onClick={() => showToast('Changes discarded.')} label="Discard"></VentyButton>
+                <VentyButton variant="secondary" onClick={() => showToast('Changes discarded.', 'warning')} label="Discard"></VentyButton>
                 <VentyButton variant="primary" onClick={handleSave} label="Save Settings"></VentyButton>
             </div>
         </div>

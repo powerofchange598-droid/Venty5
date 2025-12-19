@@ -8,7 +8,7 @@ import VentyButton from '../components/VentyButton';
 import Card from '../components/Card';
 import { useToast } from '../hooks/useToast';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
-import { MinusCircleIcon, ArrowUpCircleIcon, ArrowsRightLeftIcon, BuildingLibraryIcon, BellIcon, SparklesIcon, ArrowRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { MinusCircleIcon, ArrowUpCircleIcon, ArrowsRightLeftIcon, BuildingLibraryIcon, BellIcon, SparklesIcon, ArrowRightIcon, XMarkIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { api } from '../lib/api';
 import { safeFormatDate } from '../utils/dateUtils';
 
@@ -29,7 +29,7 @@ const containerVariants = {
 
 const itemVariants = {
     hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100 } },
+    visible: { y: 0, opacity: 1, transition: { type: 'spring' as const, stiffness: 100 } },
 };
 
 const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
@@ -48,7 +48,14 @@ const ActionModal: React.FC<{ isOpen: boolean; onClose: () => void; title: strin
                 className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 z-50"
                 initial="hidden" animate="visible" exit="exit" variants={backdropVariants} onClick={onClose}
             >
-                <motion.div className="bg-bg-secondary rounded-xl shadow-lg w-full max-w-md p-6" variants={modalVariants} onClick={(e) => e.stopPropagation()}>
+                <motion.div
+                    className="bg-bg-secondary rounded-xl shadow-lg w-full max-w-md p-6"
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    variants={modalVariants as any}
+                    onClick={(e) => e.stopPropagation()}
+                >
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-bold font-serif">{title}</h2>
                         <button onClick={onClose} className="p-1 rounded-full hover:bg-bg-tertiary"><XMarkIcon className="h-6 w-6" /></button>
@@ -181,7 +188,7 @@ const TransferForm: React.FC<{
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="e.g., Rent split" className="w-full mt-1"></textarea>
             </div>
             {error && <p className="text-xs text-feedback-error bg-feedback-error-bg rounded px-2 py-1">{error}</p>}
-            <VentyButton htmlType="submit" variant={confirm ? 'primary' : 'secondary'} className="!w-full">
+            <VentyButton htmlType="submit" variant={confirm ? 'primary' : 'secondary'} className="!w-full" onClick={() => {}}>
                 {confirm ? 'Confirm Transfer' : 'Continue'}
             </VentyButton>
         </form>
@@ -191,10 +198,28 @@ const TransferForm: React.FC<{
 
 // --- SUB-COMPONENTS for the Dashboard ---
 
-const Header: React.FC<{ name: string }> = ({ name }) => (
-    <motion.header variants={itemVariants} className="pt-2 md:pt-4 text-left">
-        <h1 className="text-2xl md:text-3xl font-bold text-text-primary">Hello, {name.split(' ')[0]}!</h1>
-        <p className="text-sm md:text-base text-text-secondary">Welcome to your financial dashboard.</p>
+const Header: React.FC<{ user: User; onSettingsClick: () => void }> = ({ user, onSettingsClick }) => (
+    <motion.header variants={itemVariants} className="pt-2 md:pt-4 flex justify-between items-start">
+        <div className="flex items-center space-x-3">
+            {user.profilePictureUrl ? (
+                <img src={user.profilePictureUrl} alt={user.name || 'User'} className="w-10 h-10 rounded-full border border-border-primary object-cover" />
+            ) : (
+                <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary font-bold">
+                    {(user.name || user.email || 'U')[0].toUpperCase()}
+                </div>
+            )}
+            <div className="text-left">
+                <h1 className="text-2xl md:text-3xl font-bold text-text-primary">Hello, {(user.name || user.email || '').split(' ')[0]}!</h1>
+                <p className="text-sm md:text-base text-text-secondary">Welcome to your financial dashboard.</p>
+            </div>
+        </div>
+        <button 
+            onClick={onSettingsClick} 
+            className="p-2 rounded-full bg-bg-secondary hover:bg-bg-tertiary border border-border-primary text-text-secondary hover:text-text-primary transition-colors"
+            aria-label="Settings"
+        >
+            <Cog6ToothIcon className="h-6 w-6" />
+        </button>
     </motion.header>
 );
 
@@ -358,23 +383,23 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ user, isPremiumUser, 
     }, [user, budget, fixedExpenses, transferImpact]);
     
     const handleAddExpense = useCallback((data: ExpenseData) => {
-        showToast(`Expense of ${formatCurrency(data.amount)} added!`);
+        showToast(`Expense of ${formatCurrency(data.amount)} added!`, 'success');
     }, [showToast, formatCurrency]);
 
     const handleAddIncome = useCallback((data: IncomeData) => {
-        showToast(`Income of ${formatCurrency(data.amount)} added!`);
+        showToast(`Income of ${formatCurrency(data.amount)} added!`, 'success');
     }, [showToast, formatCurrency]);
 
     const handleTransfer = useCallback(async (payload: { amount: number; type: TransferType; direction: 'out' | 'in'; target?: string; notes?: string; }) => {
         const res = await api.transfer(user.id, payload);
-        if (!res.ok) { showToast('Transfer failed. Please try again.'); return; }
+        if (!res.ok) { showToast('Transfer failed. Please try again.', 'error'); return; }
         const signed = payload.direction === 'out' ? -Math.abs(payload.amount) : Math.abs(payload.amount);
         setTransferImpact(prev => prev + signed);
         setLocalTx(prev => [
             { id: res.data?.id || `tx_${Date.now()}`, description: `Transfer ${payload.type}${payload.target ? ` → ${payload.target}` : ''}`, amount: signed, date: new Date().toISOString(), icon: '⇄' } as Transaction,
             ...prev,
         ]);
-        showToast(`Transfer successful. Ref: ${res.data?.id || 'local'}`);
+        showToast(`Transfer successful. Ref: ${res.data?.id || 'local'}`, 'success');
     }, [showToast]);
 
     return (
@@ -395,7 +420,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ user, isPremiumUser, 
                 animate="visible"
                 variants={containerVariants}
             >
-                <Header name={user.name} />
+                <Header user={user} onSettingsClick={() => navigate('/settings')} />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                     <DailySummaryCard formatCurrency={formatCurrency} />

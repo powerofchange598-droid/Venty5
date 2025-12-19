@@ -156,7 +156,7 @@ const StoreSetupScreen: React.FC<StoreSetupScreenProps> = ({ user, onSave }) => 
     
     const handleSave = () => {
         onSave(config);
-        showToast("Store design saved successfully!");
+        showToast("Store design saved successfully!", 'success');
     };
     
     return (

@@ -11,7 +11,7 @@ import { COUNTRY_CURRENCY, AVAILABLE_CURRENCIES } from '../data/currencyData';
 import { useDetectCountry } from '../hooks/useDetectCountry';
 import Copyright from '../components/Copyright';
 import { useTranslation } from 'react-i18next';
-import { GoogleIcon, FacebookIcon, AppleIcon } from '../components/Icons';
+import { GoogleIcon } from '../components/Icons';
 import { useAuth } from '../hooks/useAuth';
 import SelectorModal from '../components/SelectorModal';
 import PasswordStrengthMeter, { checkPasswordStrength } from '../components/PasswordStrengthMeter';
@@ -579,28 +579,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onJoinF
         checkBiometricsSupport();
     }, []);
 
-    const { signInWithGoogle, signInWithFacebook, signInWithApple } = useAuth();
-    const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
+    const { signInWithGoogle } = useAuth();
+    const handleSocialLogin = async (provider: 'google') => {
         setAuthState({ provider, isLoading: true, isSuccess: false });
         try {
             if (provider === 'google') {
                 await signInWithGoogle();
                 return;
-            }
-            let u = null;
-            if (provider === 'facebook') u = await signInWithFacebook();
-            else u = await signInWithApple();
-            if (u) {
-                const data = { name: u.displayName || '', email: u.email || '' };
-                setSocialData(data);
-                setAuthState({ provider, isLoading: false, isSuccess: true });
-                setTimeout(() => {
-                    setView('accountType');
-                    setAuthState({ provider: null, isLoading: false, isSuccess: false });
-                }, 800);
-            } else {
-                setAuthState({ provider, isLoading: false, isSuccess: false });
-                alert('Authentication failed or cancelled. Please try again.');
             }
         } catch {
             setAuthState({ provider, isLoading: false, isSuccess: false });
@@ -664,17 +649,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onJoinF
             case 'welcome':
                 return (
                      <div className="w-full max-w-md text-center">
-                        <div className="flex justify-end mb-2">
-                            <button onClick={() => setLangOpen(true)} className="cta-text-link !text-sm">
-                                {t('settings.language')}
-                            </button>
-                        </div>
                         <motion.h1 variants={containerVariants} className="text-4xl font-bold tracking-tight text-text-primary">{t('welcomeBrand')}</motion.h1>
                         <motion.p variants={containerVariants} className="mt-2 text-xl text-text-secondary">Your money. Your way.</motion.p>
                         <motion.div variants={containerVariants} className="mt-10 space-y-4">
                             <SocialButton icon={<GoogleIcon />} text={t('onboarding.continueWithGoogle')} onClick={() => handleSocialLogin('google')} isLoading={authState.provider === 'google' && authState.isLoading} isSuccess={authState.provider === 'google' && authState.isSuccess} disabled={authState.isLoading} />
-                            <SocialButton icon={<FacebookIcon />} text={t('onboarding.continueWithFacebook')} onClick={() => handleSocialLogin('facebook')} isLoading={authState.provider === 'facebook' && authState.isLoading} isSuccess={authState.provider === 'facebook' && authState.isSuccess} disabled={authState.isLoading} />
-                            <SocialButton icon={<AppleIcon />} text={t('onboarding.continueWithApple')} onClick={() => handleSocialLogin('apple')} isLoading={authState.provider === 'apple' && authState.isLoading} isSuccess={authState.provider === 'apple' && authState.isSuccess} disabled={authState.isLoading} />
                         </motion.div>
                         <motion.div variants={containerVariants} className="flex items-center py-8"><hr className="flex-grow border-bg-tertiary/50" /><span className="px-4 font-semibold text-text-secondary">{t('onboarding.orDivider')}</span><hr className="flex-grow border-bg-tertiary/50" /></motion.div>
                         <motion.div variants={containerVariants} className="space-y-3">
@@ -682,8 +660,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onJoinF
                             <VentyButton onClick={() => setView('loginEmail')} label="Log in with Email" variant="outline"></VentyButton>
                         </motion.div>
                         <motion.div variants={containerVariants} className="mt-12 text-center space-y-3 flex flex-col items-center">
-                            <button onClick={() => setView('joinFamily')} className="cta-text-link"><UsersIcon className="w-5 h-5 mr-1.5" /><span>{t('onboarding.joinFamilyTitle')}</span></button>
-                            <button onClick={onExploreAsGuest} className="cta-text-link"><EyeIcon className="w-5 h-5 mr-1.5" /><span>{t('onboarding.exploreAsGuest')}</span></button>
+                            <button onClick={() => setView('joinFamily')} className="cta-text-link"><UsersIcon className="w-5 h-5 mr-1.5 text-brand-primary" /><span>{t('onboarding.joinFamilyTitle')}</span></button>
+                            <button onClick={onExploreAsGuest} className="cta-text-link"><EyeIcon className="w-5 h-5 mr-1.5 text-feedback-info" /><span>{t('onboarding.exploreAsGuest')}</span></button>
                         </motion.div>
                     </div>
                 );

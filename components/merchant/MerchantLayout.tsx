@@ -7,12 +7,17 @@ interface MerchantLayoutProps {
 }
 
 export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ user }) => {
-    // If the user's account type is merchant but they haven't created a profile yet,
-    // redirect them to the onboarding screen.
     if (user.accountType === 'merchant' && !user.merchantProfile) {
         return <Navigate to="/merchant/onboard" replace />;
     }
+    if (user.accountType === 'merchant') {
+        try {
+            const accepted = localStorage.getItem(`merchantTermsAccepted_${user.id}`) === 'true';
+            if (!accepted) return <Navigate to="/merchant/terms" replace />;
+        } catch {
+            return <Navigate to="/merchant/terms" replace />;
+        }
+    }
 
-    // Otherwise, render the requested nested merchant page (e.g., Dashboard, Products).
     return <Outlet />;
 };
