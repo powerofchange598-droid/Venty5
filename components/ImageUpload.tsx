@@ -16,7 +16,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onFileSelect, currentImageUrl
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setPreview(URL.createObjectURL(file));
+            const reader = new FileReader();
+            reader.onload = () => setPreview(typeof reader.result === 'string' ? reader.result : null);
+            reader.readAsDataURL(file);
             onFileSelect(file);
         }
     };

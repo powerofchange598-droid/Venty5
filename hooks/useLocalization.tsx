@@ -9,6 +9,7 @@ interface LocalizationContextType {
     formatCurrency: (value: number) => string;
     formatCurrencyEn: (value: number) => string;
     formatNumberEn: (value: number) => string;
+    toEnglishDigits: (value: string) => string;
     language: string;
 }
 
@@ -48,16 +49,16 @@ export const LocalizationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
     const formatCurrency = useCallback((value: number) => {
         try {
-            return new Intl.NumberFormat(i18n.language || 'en', {
+            return new Intl.NumberFormat('en', {
                 style: 'currency',
                 currency,
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0,
             }).format(value);
         } catch (error) {
-            return `${Math.round(value).toLocaleString()} ${currency}`;
+            return `${Math.round(value).toLocaleString('en-US')} ${currency}`;
         }
-    }, [currency, i18n.language]);
+    }, [currency]);
 
     const formatCurrencyEn = useCallback((value: number) => {
         try {
@@ -83,12 +84,21 @@ export const LocalizationProvider: React.FC<{ children: ReactNode }> = ({ childr
         }
     }, []);
 
+    const toEnglishDigits = useCallback((value: string) => {
+        const map: Record<string, string> = {
+            '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
+            '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'
+        };
+        return value.replace(/[٠-٩۰-۹]/g, (d) => map[d] || d);
+    }, []);
+
     const value = {
         currency,
         setCurrency,
         formatCurrency,
         formatCurrencyEn,
         formatNumberEn,
+        toEnglishDigits,
         language: i18n.language,
     };
 

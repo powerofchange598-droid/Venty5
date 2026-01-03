@@ -15,7 +15,6 @@ import { LocalizationProvider } from './hooks/useLocalization';
 import { User, BudgetCategory, Goal, MerchantAd, PurchaseRequest, FixedExpense, Order, StoreConfig, Product, AdType, AdPlanId, Transaction } from './types';
 import { mockUser, mockMerchantUser, mockBudget, mockFamily, mockAds, mockPurchaseRequests, mockOrders, mockTransactions } from './data/mockData';
 import { generateInitialBudget } from './utils/budgetGenerator';
-import { api } from './lib/api';
 
 // --- Layout Components ---
 import SideNav from './components/SideNav';
@@ -69,7 +68,6 @@ const PaymentMethodsScreen = lazy(() => import('./screens/PaymentMethodsScreen')
 const TermsScreen = lazy(() => import('./screens/TermsScreen'));
 const PrivacyPolicyScreen = lazy(() => import('./screens/PrivacyPolicyScreen'));
 const MerchantTermsScreen = lazy(() => import('./screens/merchant/MerchantTermsScreen'));
-const AuthScreen = lazy(() => import('./screens/AuthScreen'));
 
 
 const AppLayout: React.FC<{
@@ -116,51 +114,12 @@ const AppLayout: React.FC<{
 const AppContent: React.FC = () => {
     const navigate = useNavigate();
     const { showToast } = useToast();
-    const { user: authUser, signOut: authSignOut, loading } = useAuth(); // Integrate useAuth
-    const [user, setUser] = useState<User | null>(() => {
-        const storedUser = localStorage.getItem('ventyUser');
-        return storedUser ? JSON.parse(storedUser) : null;
-    });
+    const { user, loading, logout, updateUser, loginAsGuest, signUpWithEmail } = useAuth();
+    
+    // Track if we are in the middle of a signup flow (to show Terms/Biometrics)
+    const [isSignupFlow, setIsSignupFlow] = useState(false);
+    
     const [onboardingComplete, setOnboardingComplete] = useState(() => localStorage.getItem('onboardingComplete') === 'true');
-
-    // Sync AuthUser (from Server/Firebase) with App User State
-    useEffect(() => {
-        if (authUser) {
-            setUser(prev => {
-                // Avoid unnecessary updates
-                if (prev && prev.id === authUser.uid) return prev;
-                
-                // Merge authUser into App User structure
-                // Preserve existing user data if it matches the ID (e.g. from local storage load)
-                const base = (prev && prev.id === authUser.uid) ? prev : mockUser;
-                return {
-                    ...base,
-                    id: authUser.uid,
-                    email: authUser.email || base.email,
-                    name: authUser.displayName || base.name,
-                    profilePictureUrl: authUser.photoURL || base.profilePictureUrl,
-                    isGuest: false,
-                };
-            });
-            // If we have a real user, ensure onboarding is considered complete or check a flag
-            // For now, we'll assume Google Login implies access, or we could redirect to onboarding if needed.
-            // But let's respect the existing 'onboardingComplete' logic if possible, 
-            // OR just set it to true to unblock the user as per "Fix... and make it work"
-            if (!localStorage.getItem('onboardingComplete')) {
-                 setOnboardingComplete(true);
-                 localStorage.setItem('onboardingComplete', 'true');
-            }
-        } else {
-            // If authUser is null, but we have a user in state...
-            // Check if it's a guest user (which might not be in authProvider)
-            // My useAuth changes removed local/guest logic from there.
-            // So if useAuth says null, we are effectively logged out from the server/firebase perspective.
-            // If the user was a guest, they are local-only.
-            // We should only clear user if they were NOT a guest?
-            // Or better, let's leave the user alone if they are a guest.
-            setUser(prev => (prev?.isGuest ? prev : null));
-        }
-    }, [authUser]);
     
     // --- User-specific, persisted state ---
     const [budget, setBudget] = useState<BudgetCategory[]>(mockBudget);
@@ -174,55 +133,41 @@ const AppContent: React.FC = () => {
     const [orders, setOrders] = useState<Order[]>(mockOrders);
     const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
 
-    // --- DATA PERSISTENCE HOOKS ---
-
     // Load user data on user change
     useEffect(() => {
-        let cancelled = false;
-        const load = async () => {
-            if (!user) {
-                setBudget([]);
+        if (user) {
+            const dataKey = `ventyUserData_${user.id}`;
+            const savedDataRaw = localStorage.getItem(dataKey);
+            if (savedDataRaw) {
+                const savedData = JSON.parse(savedDataRaw);
+                setBudget(savedData.budget || mockBudget);
+                setFixedExpenses(savedData.fixedExpenses || []);
+                setGoals(savedData.goals || []);
+                setPurchaseRequests(savedData.purchaseRequests || mockPurchaseRequests);
+                setOrders(savedData.orders || mockOrders);
+                setTransactions(savedData.transactions || mockTransactions);
+            } else {
+                // New user or no saved data, reset to defaults
+                setBudget(mockBudget);
                 setFixedExpenses([]);
                 setGoals([]);
-                setPurchaseRequests([]);
-                setOrders([]);
-                setTransactions([]);
-                return;
+                setPurchaseRequests(mockPurchaseRequests);
+                setOrders(mockOrders);
+                setTransactions(mockTransactions);
             }
-            try {
-                const [bRes, fRes, gRes] = await Promise.all([
-                    api.listBudgetCategories(user.id),
-                    api.listFixedExpenses(user.id),
-                    api.listGoals(user.id),
-                ]);
-                if (cancelled) return;
-                setBudget((bRes.ok && Array.isArray(bRes.data?.items)) ? bRes.data.items : []);
-                setFixedExpenses((fRes.ok && Array.isArray(fRes.data?.items)) ? fRes.data.items : []);
-                setGoals((gRes.ok && Array.isArray(gRes.data?.items)) ? gRes.data.items : []);
-                setPurchaseRequests([]);
-                setOrders([]);
-                setTransactions([]);
-                const dataKey = `ventyUserData_${user.id}`;
-                localStorage.setItem(dataKey, JSON.stringify({
-                    budget,
-                    fixedExpenses,
-                    goals,
-                    purchaseRequests,
-                    orders,
-                    transactions
-                }));
-            } catch {
-                if (cancelled) return;
-                setBudget([]);
-                setFixedExpenses([]);
-                setGoals([]);
-                setPurchaseRequests([]);
-                setOrders([]);
-                setTransactions([]);
-            }
-        };
-        load();
-        return () => { cancelled = true; };
+            
+            // Sync onboarding status if possible or just rely on local storage for now
+            const isCompleted = localStorage.getItem('onboardingComplete') === 'true';
+            setOnboardingComplete(isCompleted);
+        } else {
+            // No user, clear all data
+            setBudget(mockBudget);
+            setFixedExpenses([]);
+            setGoals([]);
+            setPurchaseRequests(mockPurchaseRequests);
+            setOrders(mockOrders);
+            setTransactions(mockTransactions);
+        }
     }, [user]);
 
     // Save user data whenever it changes
@@ -241,54 +186,25 @@ const AppContent: React.FC = () => {
         }
     }, [user, budget, fixedExpenses, goals, purchaseRequests, orders, transactions, onboardingComplete]);
 
+    const handleSignupWrapper = useCallback(async (email: string, pass: string) => {
+        setIsSignupFlow(true);
+        return await signUpWithEmail(email, pass);
+    }, [signUpWithEmail]);
 
-    const handleLogin = useCallback((onboardingData: Partial<User>) => {
-        const isGuest = !!onboardingData.isGuest;
-        const guestId = `guest_${Math.random().toString(36).slice(2, 10)}`;
-        const baseId = isGuest ? guestId : (onboardingData.id || `user_${Date.now()}`);
-        const fullUser: User = {
-            id: baseId,
-            name: onboardingData.name || 'User',
-            age: onboardingData.age,
-            occupation: onboardingData.occupation,
-            profilePictureUrl: onboardingData.profilePictureUrl,
-            role: 'Parent',
-            isFamilyHead: (onboardingData.accountPlan === 'family') ? true : false,
-            familyId: onboardingData.familyId,
-            salary: Number(onboardingData.salary) || 0,
-            familyMembers: Number(onboardingData.familyMembers) || 1,
-            priorities: [],
-            nonEssentials: [],
-            email: onboardingData.email || '',
-            accountType: onboardingData.accountType || 'regular',
-            accountPlan: onboardingData.accountPlan || 'single',
-            merchantProfile: onboardingData.merchantProfile,
-            contactInfo: { phone: '', address: '', preferredMeetup: '' },
-            inventory: [],
-            orderHistory: [],
-            termsAcceptedVersion: undefined,
-            termsAcceptedAt: undefined,
-            isGuest,
-            isVerified: false,
-            primarySpendingCategory: onboardingData.primarySpendingCategory,
-            currency: onboardingData.currency || 'USD',
-            langCode: onboardingData.langCode || 'en',
-            countryCode: onboardingData.countryCode || 'US',
-            referralCode: onboardingData.referralCode,
-        };
-        setUser(fullUser);
-        localStorage.setItem('ventyUser', JSON.stringify(fullUser));
-        localStorage.setItem('onboardingComplete', isGuest ? 'true' : 'false');
-        setOnboardingComplete(isGuest ? true : false);
-    }, []);
+    const handleLogin = useCallback((onboardingData?: Partial<User>) => {
+        if (onboardingData?.isGuest) {
+            loginAsGuest();
+        } else {
+            // Finished signup flow (Terms/Biometrics)
+            setIsSignupFlow(false);
+        }
+    }, [loginAsGuest]);
     
     const handleOnboardingFinish = useCallback((data: { fixedExpenses: FixedExpense[], newBudget: BudgetCategory[], goals: Goal[], salary?: number }) => {
         let finalUser = user;
         if (data.salary && user) {
-            const updatedUser = { ...user, salary: data.salary };
-            setUser(updatedUser);
-            localStorage.setItem('ventyUser', JSON.stringify(updatedUser));
-            finalUser = updatedUser;
+            updateUser({ salary: data.salary });
+            finalUser = { ...user, salary: data.salary } as User;
         }
 
         setFixedExpenses(data.fixedExpenses);
@@ -307,41 +223,38 @@ const AppContent: React.FC = () => {
             showToast("AI Assistant setup complete. Your personal financial dashboard is now ready.");
             navigate('/dashboard');
         });
-    }, [user, navigate, showToast]);
+    }, [user, navigate, showToast, updateUser]);
 
 
     const handleLogout = useCallback(() => {
-        setUser(null);
-        localStorage.removeItem('ventyUser');
+        logout();
         localStorage.removeItem('onboardingComplete');
         setOnboardingComplete(false);
-    }, []);
+        setIsSignupFlow(false);
+        navigate('/');
+    }, [logout, navigate]);
 
     const handleSwitchUser = useCallback(() => {
-        setUser(prevUser => {
-            if (!prevUser) return null;
-            const isSwitchingToMerchant = prevUser.accountType !== 'merchant';
-            const newUser = isSwitchingToMerchant ? { ...mockMerchantUser, id: prevUser.id } : { ...mockUser, id: prevUser.id };
-            document.documentElement.setAttribute('data-account-type', newUser.accountType);
-            localStorage.setItem('ventyUser', JSON.stringify(newUser));
-            
-            Promise.resolve().then(() => {
-                showToast(`Switched to ${isSwitchingToMerchant ? 'Merchant' : 'Regular'} mode`, 'info');
-                navigate(isSwitchingToMerchant ? '/merchant/dashboard' : '/dashboard');
-            });
-
-            return newUser;
-        });
-    }, [navigate, showToast]);
+        if (!user) return;
+        const isCurrentlyMerchant = user.accountType === 'merchant';
+        const newType = isCurrentlyMerchant ? 'regular' : 'merchant';
+        
+        updateUser({ accountType: newType });
+        document.documentElement.setAttribute('data-account-type', newType);
+        
+        showToast(`Switched to ${newType === 'merchant' ? 'Merchant' : 'Regular'} mode`, 'info');
+        navigate(newType === 'merchant' ? '/merchant/dashboard' : '/dashboard');
+    }, [user, navigate, showToast, updateUser]);
     
     const handlePaymentSuccess = useCallback((details: any) => {
         if (details.for === 'premium_subscription') setIsPremium(true);
-        if (details.for === 'verified_badge' && user) setUser({ ...user, isVerified: true });
+        if (details.for === 'verified_badge' && user) updateUser({ isVerified: true });
         if (details.for === 'merchant_verification' && user?.merchantProfile) {
-            setUser({ ...user, merchantProfile: { ...user.merchantProfile, isVerified: true, verificationType: 'paid' } });
+            updateUser({ merchantProfile: { ...user.merchantProfile, isVerified: true, verificationType: 'paid' } });
         }
         if (details.for === 'ad_subscription' && user?.merchantProfile) {
-            const planId = details.planDetails.planId as AdPlanId;
+            const planDetails = details.planDetails;
+            const planId = planDetails.planId as AdPlanId;
             let activeFeatures: AdType[] = [];
             switch(planId) {
                 case 'premium':
@@ -355,7 +268,7 @@ const AppContent: React.FC = () => {
                     break;
             }
 
-            setUser({ ...user, merchantProfile: { ...user.merchantProfile, subscription: details.planDetails, activeFeatures } });
+            updateUser({ merchantProfile: { ...user.merchantProfile, subscription: planDetails, activeFeatures } });
             showToast("Subscription activated successfully!", 'success');
             navigate('/marketing', { state: { fromPayment: true } });
             return;
@@ -363,7 +276,7 @@ const AppContent: React.FC = () => {
         Promise.resolve().then(() => {
             navigate(user?.accountType === 'merchant' ? '/merchant/dashboard' : '/dashboard');
         });
-    }, [user, navigate, showToast]);
+    }, [user, navigate, showToast, updateUser]);
 
     const handleReviewRequest = useCallback((requestId: string, decision: 'approved' | 'rejected') => {
         setPurchaseRequests(prev =>
@@ -404,32 +317,13 @@ const AppContent: React.FC = () => {
         showToast(`Order #${orderId.split('-')[1]} has been cancelled.`, 'warning');
     }, [showToast]);
 
-    if (loading) {
-        return (
-            <div className="flex h-screen items-center justify-center bg-bg-primary">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-primary"></div>
-            </div>
-        );
-    }
-
-    if (!authUser) {
-        return (
-            <Suspense fallback={<div className="flex h-screen items-center justify-center bg-bg-primary"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-primary"></div></div>}>
-                <Routes>
-                    <Route path="/auth" element={<AuthScreen />} />
-                    <Route path="*" element={<Navigate to="/auth" replace />} />
-                </Routes>
-            </Suspense>
-        );
-    }
-
     return (
         <AnimatePresence mode="wait">
-            {!user ? (
+            {!user || isSignupFlow ? (
                 <Routes>
                     <Route path="/terms" element={<TermsScreen />} />
                     <Route path="/privacy" element={<PrivacyPolicyScreen />} />
-                    <Route path="*" element={<OnboardingScreen onComplete={handleLogin} onJoinFamily={() => {}} onExploreAsGuest={() => handleLogin({isGuest: true})} />} />
+                    <Route path="*" element={<OnboardingScreen onComplete={handleLogin} onJoinFamily={() => {}} onExploreAsGuest={() => handleLogin({isGuest: true})} onSignUp={handleSignupWrapper} />} />
                 </Routes>
             ) : !onboardingComplete ? (
                  <Routes>
@@ -453,7 +347,7 @@ const AppContent: React.FC = () => {
                         <Route path="family" element={<FamilyScreen user={user} family={mockFamily} onUpdateFamily={() => {}} purchaseRequests={purchaseRequests} />} />
                         <Route path="family/coordinate" element={<FamilyChatScreen user={user} family={mockFamily} />} />
                         <Route path="family/review" element={<FamilyRequestsScreen user={user} requests={purchaseRequests} onReview={handleReviewRequest} />} />
-                        <Route path="settings" element={<SettingsScreen user={user} setUser={setUser} isPremiumUser={isPremium} onSwitchUser={handleSwitchUser} onLogout={handleLogout} onUpgrade={() => navigate('/payment', { state: { for: 'premium_subscription', amount: 22, description: 'Venty Premium Subscription' } })} />} />
+                        <Route path="settings" element={<SettingsScreen user={user} setUser={(u: User) => updateUser(u)} isPremiumUser={isPremium} onSwitchUser={handleSwitchUser} onLogout={handleLogout} onUpgrade={() => navigate('/payment', { state: { for: 'premium_subscription', amount: 22, description: 'Venty Premium Subscription' } })} />} />
                         <Route path="exchange" element={<ExchangeListScreen user={user} />} />
                         <Route path="exchange/post" element={<ExchangePostScreen user={user} />} />
                         <Route path="exchange/chat/:chatId" element={<ExchangeChatScreen currentUser={user} />} />
@@ -480,12 +374,8 @@ const AppContent: React.FC = () => {
                     </Route>
                     <Route path="payment" element={<PaymentScreen user={user} onPaymentSuccess={handlePaymentSuccess} />} />
                     <Route path="merchant/onboard" element={<MerchantOnboardingScreen user={user} onComplete={(profile) => {
-                        setUser(u => {
-                            if (!u) return u;
-                            const updated = { ...u, merchantProfile: profile };
-                            try { localStorage.setItem(`merchantTermsAccepted_${u.id}`, 'true'); } catch {}
-                            return updated;
-                        });
+                        updateUser({ merchantProfile: profile });
+                        try { localStorage.setItem(`merchantTermsAccepted_${user.id}`, 'true'); } catch {}
                         navigate('/merchant/dashboard', { replace: true });
                     }} />} />
                     <Route path="/terms" element={<TermsScreen />} />

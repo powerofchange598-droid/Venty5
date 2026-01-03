@@ -183,7 +183,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ user, onPaymentSuccess })
         setPromoError(false);
         try {
             const backendEnv: string = (import.meta as any).env?.VITE_PAYPAL_BACKEND_URL || '';
-            const fallback = `${window.location.protocol}//${window.location.hostname}:8080`;
+            const fallback = `${window.location.protocol}//${window.location.hostname}:8081`;
             const backend: string = backendEnv || fallback;
             const resp = await fetch(`${backend}/api/promo-codes/apply`, {
                 method: 'POST',

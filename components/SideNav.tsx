@@ -62,17 +62,37 @@ const SideNav: React.FC<SideNavProps> = memo(({ user, isPremiumUser }) => {
                     to="/settings"
                     className="flex items-center gap-3 p-2 rounded-xl hover:bg-bg-tertiary transition-colors"
                 >
-                    <div className="w-10 h-10 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-bold text-lg">
-                        {user.name.charAt(0)}
-                    </div>
+                    {user.accountType === 'merchant' && user.merchantProfile?.logoUrl ? (
+                        <img
+                            src={user.merchantProfile.logoUrl}
+                            alt={user.merchantProfile.brandName || 'Store'}
+                            className="w-10 h-10 rounded-full object-cover ring-2 ring-border-primary"
+                            loading="lazy"
+                        />
+                    ) : user.profilePictureUrl ? (
+                        <img
+                            src={user.profilePictureUrl}
+                            alt={user.name}
+                            className="w-10 h-10 rounded-full object-cover ring-2 ring-border-primary"
+                            loading="lazy"
+                        />
+                    ) : (
+                        <div className="w-10 h-10 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-bold text-lg">
+                            {user.name.charAt(0)}
+                        </div>
+                    )}
                     <div className="min-w-0">
                         <p className="font-bold text-sm text-text-primary flex items-center gap-1.5">
                             <span className="text-xs font-semibold text-text-secondary">Settings</span>
-                            <span className="truncate">{user.name}</span>
+                            <span className="truncate">
+                                {user.accountType === 'merchant' && user.merchantProfile?.brandName ? user.merchantProfile.brandName : user.name}
+                            </span>
                             {user.isVerified && <VerifiedBadge user={user} />}
                         </p>
                         {isPremiumUser && <PremiumBadge />}
-                        <p className="text-xs text-text-secondary truncate">{user.email}</p>
+                        <p className="text-xs text-text-secondary truncate">
+                            {user.accountType === 'merchant' && user.merchantProfile?.slug ? `@${user.merchantProfile.slug}` : user.email}
+                        </p>
                     </div>
                 </NavLink>
             </div>

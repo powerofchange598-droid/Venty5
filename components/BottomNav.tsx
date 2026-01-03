@@ -7,9 +7,7 @@ import {
     ChatBubbleLeftRightIcon,
     ChartPieIcon,
     ChartBarIcon,
-    SparklesIcon,
-    EllipsisHorizontalIcon,
-    UserGroupIcon
+    SparklesIcon
 } from '@heroicons/react/24/outline';
 import { User } from '../types';
 import { mockInboxMessages } from '../data/mockData';
@@ -30,16 +28,11 @@ const BottomNav: React.FC<BottomNavProps> = memo(({ user }) => {
     const navItems: NavItem[] = [
         { path: '/dashboard', icon: HomeIcon, label: 'Home' },
         { path: '/budget', icon: ChartPieIcon, label: 'Budget' },
+        { path: '/financial-snapshot', icon: ChartBarIcon, label: 'Snapshot' },
+        { path: '/goals', icon: SparklesIcon, label: 'Goals' },
+        { path: '/market', icon: BuildingStorefrontIcon, label: 'Store' },
+        { path: '/messages', icon: ChatBubbleLeftRightIcon, label: 'Messages' },
     ];
-
-    if (user.accountPlan === 'family') {
-        navItems.push({ path: '/family', icon: UserGroupIcon, label: 'Family' });
-    } else {
-        navItems.push({ path: '/market', icon: BuildingStorefrontIcon, label: 'Store' });
-    }
-
-    navItems.push({ path: '/financial-snapshot', icon: ChartBarIcon, label: 'Snapshot' });
-    navItems.push({ path: '/more', icon: EllipsisHorizontalIcon, label: 'More' });
 
     const unreadCount = mockInboxMessages.filter(m => !m.isRead).length;
     

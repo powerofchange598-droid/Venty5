@@ -1,14 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Order, OrderStatus } from '../../types';
-import { mockMerchant } from '../../data/mockData';
-import Card from '../../components/Card';
-import MerchantPageLayout from '../../components/merchant/MerchantPageLayout';
-import { useLocalization } from '../../hooks/useLocalization';
+import { User, Order, OrderStatus } from '../types';
+import Card from '../components/Card';
+import MerchantPageLayout from '../components/merchant/MerchantPageLayout';
+import { useLocalization } from '../hooks/useLocalization';
 import { ChatBubbleLeftRightIcon, BanknotesIcon } from '@heroicons/react/24/outline';
-import VentyButton from '../../components/VentyButton';
+import VentyButton from '../components/VentyButton';
 import { useTranslation } from 'react-i18next';
-import HorizontalScroller from '../../components/HorizontalScroller';
+import HorizontalScroller from '../components/HorizontalScroller';
 
 interface OrderManagementScreenProps {
     user: User;
@@ -108,7 +107,7 @@ const OrderCard: React.FC<{
 
 const OrderManagementScreen: React.FC<OrderManagementScreenProps> = ({ user }) => {
     const { t } = useTranslation();
-    const [orders, setOrders] = useState<Order[]>(mockMerchant.orders);
+    const [orders, setOrders] = useState<Order[]>([]);
     const [filterStatus, setFilterStatus] = useState<OrderStatus | 'all'>('all');
     const { formatCurrency } = useLocalization();
     const [visibleCount, setVisibleCount] = useState(ORDERS_PER_PAGE);

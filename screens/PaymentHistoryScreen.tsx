@@ -3,7 +3,6 @@ import { User, PaymentRecord, PaymentStatus } from '../types';
 import PageLayout from '../components/PageLayout';
 import Card from '../components/Card';
 import { useLocalization } from '../hooks/useLocalization';
-import { mockPaymentHistory } from '../data/mockData';
 import { CheckCircleIcon, ClockIcon, XCircleIcon, CreditCardIcon } from '@heroicons/react/24/solid';
 import { safeFormatDateTime } from '../utils/dateUtils';
 
@@ -87,7 +86,8 @@ const PaymentHistoryScreen: React.FC<PaymentHistoryScreenProps> = ({ user }) => 
     const { formatCurrency } = useLocalization();
 
     const filteredRecords = useMemo(() => {
-        let records = [...mockPaymentHistory];
+        const recordsSource: PaymentRecord[] = [];
+        let records = [...recordsSource];
 
         if (statusFilter !== 'all') {
             records = records.filter(r => r.status === statusFilter);

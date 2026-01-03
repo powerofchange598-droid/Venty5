@@ -6,6 +6,9 @@ import VentyButton from '../../components/VentyButton';
 import { BuildingStorefrontIcon, ChevronRightIcon, ChevronLeftIcon } from '@heroicons/react/24/solid';
 import ImageUpload from '../../components/ImageUpload';
 import { TOP_100_COUNTRIES } from '../../data/TOP_100_COUNTRIES';
+import { api } from '../../lib/api';
+import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../hooks/useToast';
 
 // --- Sub-Components (Extracted and Memoized for performance) ---
 
@@ -115,6 +118,8 @@ interface MerchantOnboardingScreenProps {
 
 const MerchantOnboardingScreen: React.FC<MerchantOnboardingScreenProps> = ({ user, onComplete }) => {
     const { t } = useTranslation();
+    const { updateUser, refreshSession } = useAuth();
+    const { showToast } = useToast();
     const steps = [t('merchantOnboarding.steps.brand'), t('merchantOnboarding.steps.contact'), t('merchantOnboarding.steps.logo'), t('merchantOnboarding.steps.summary')];
 
     const [step, setStep] = useState(0);
@@ -147,6 +152,16 @@ const MerchantOnboardingScreen: React.FC<MerchantOnboardingScreenProps> = ({ use
             setRegionData(null);
         }
     }, [formData.countryCode, formData.governorate, allRegions]);
+    
+    useEffect(() => {
+        if (!logoFile) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const url = typeof reader.result === 'string' ? reader.result : '';
+            setFormData(prev => ({ ...prev, logoUrl: url }));
+        };
+        reader.readAsDataURL(logoFile);
+    }, [logoFile]);
 
     const handleNext = () => setStep(prev => Math.min(prev + 1, steps.length - 1));
     const handleBack = () => setStep(prev => Math.max(prev - 1, 0));
@@ -165,7 +180,7 @@ const MerchantOnboardingScreen: React.FC<MerchantOnboardingScreenProps> = ({ use
         }));
     }, [allRegions]);
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         const completeProfile: MerchantProfile = {
             brandName: formData.brandName || '',
             slug: formData.slug || '',
@@ -173,9 +188,34 @@ const MerchantOnboardingScreen: React.FC<MerchantOnboardingScreenProps> = ({ use
             countryCode: formData.countryCode || '',
             governorate: formData.governorate || '',
             address: formData.address || '',
-            logoUrl: formData.logoUrl || (logoFile ? URL.createObjectURL(logoFile) : ''), // Simulate upload
+            logoUrl: formData.logoUrl || '',
         };
-        onComplete(completeProfile);
+        let slug = completeProfile.slug || '';
+        if (!slug && user.email) {
+            slug = user.email.replace(/[^a-z0-9]/gi, '-');
+            completeProfile.slug = slug;
+        }
+        if (!slug) {
+            showToast('Missing merchant slug', 'error');
+            return;
+        }
+        const payload = {
+            ...completeProfile,
+            storeName: completeProfile.brandName,
+            ownerId: user.id,
+            email: user.email,
+            storeStatus: 'active'
+        };
+        const res = await api.updateMerchant(slug, payload);
+        if (res.ok) {
+            try { localStorage.setItem(`merchantTermsAccepted_${user.id}`, 'true'); } catch {}
+            updateUser({ merchantProfile: completeProfile });
+            await refreshSession();
+            onComplete(completeProfile);
+            showToast(t('common.done'), 'success');
+        } else {
+            showToast('Failed to save merchant profile', 'error');
+        }
     };
     
     return (

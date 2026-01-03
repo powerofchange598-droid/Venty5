@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { User, UnifiedChat, UnifiedChatMessage, Product } from '../types';
-import { mockUnifiedChats, mockUnifiedChatMessages, mockUser, mockMerchantUser, mockProducts, mockMerchant } from '../data/mockData';
 import { applyChatFilters, getSuggestedReplies, detectOffPlatformAttempt } from '../utils/chatHelper';
 import PageLayout from '../components/PageLayout';
 import Card from '../components/Card';
@@ -14,8 +13,7 @@ interface UnifiedChatScreenProps {
     currentUser: User;
 }
 
-const userColors = { [mockUser.id]: 'text-brand-primary', [mockMerchantUser.id]: 'text-feedback-success' };
-const getUserColor = (userId: string) => userColors[userId as keyof typeof userColors] || 'text-gray-500';
+const getUserColor = (_userId: string) => 'text-gray-500';
 
 const UnifiedChatScreen: React.FC<UnifiedChatScreenProps> = ({ currentUser }) => {
     const { chatId } = useParams<{ chatId: string }>();
@@ -39,15 +37,10 @@ const UnifiedChatScreen: React.FC<UnifiedChatScreenProps> = ({ currentUser }) =>
 
     // --- Effects ---
     useEffect(() => {
-        const foundChat = mockUnifiedChats.find(c => c.id === chatId);
-        if (foundChat) {
-            setChat(foundChat);
-            const foundProduct = mockProducts.find(p => p.id === foundChat.productId);
-            setProductContext(foundProduct || null);
-            const otherUserId = isMerchant ? foundChat.userId : foundChat.merchantId;
-            setOtherUser([mockUser, mockMerchantUser].find(u => u.id === otherUserId) || null);
-            setMessages(mockUnifiedChatMessages.filter(m => m.chatId === chatId));
-        }
+        setChat(null);
+        setProductContext(null);
+        setOtherUser(null);
+        setMessages([]);
     }, [chatId, isMerchant]);
 
     useEffect(() => {
@@ -62,11 +55,8 @@ const UnifiedChatScreen: React.FC<UnifiedChatScreenProps> = ({ currentUser }) =>
     };
     useEffect(scrollToBottom, [messages]);
     
-    const fetchAiSuggestions = (currentMessages: UnifiedChatMessage[]) => {
-        if (isMerchant && mockMerchant.settings?.autoReplyOn) {
-            const suggestions = getSuggestedReplies(currentMessages, productContext?.title);
-            setAiSuggestions(suggestions);
-        }
+    const fetchAiSuggestions = (_currentMessages: UnifiedChatMessage[]) => {
+        setAiSuggestions([]);
     };
     
     useEffect(() => {
@@ -129,8 +119,8 @@ const UnifiedChatScreen: React.FC<UnifiedChatScreenProps> = ({ currentUser }) =>
                 senderRole: 'system',
                 senderId: 'system',
                 senderName: 'System',
-                textRaw: `✅ Contact details shared!\nUser: ${mockUser.contactInfo.phone}\nMerchant: ${mockMerchantUser.contactInfo.phone}`,
-                textClean: `✅ Contact details shared!\nUser: ${mockUser.contactInfo.phone}\nMerchant: ${mockMerchantUser.contactInfo.phone}`,
+                textRaw: `✅ Contact details shared!\nUser: ${currentUser.contactInfo?.phone || 'Add your phone in Settings'}\nMerchant: ${otherUser?.contactInfo?.phone || 'Merchant has not provided a phone'}`,
+                textClean: `✅ Contact details shared!\nUser: ${currentUser.contactInfo?.phone || 'Add your phone in Settings'}\nMerchant: ${otherUser?.contactInfo?.phone || 'Merchant has not provided a phone'}`,
                 lang: 'en',
                 timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
             };
@@ -144,7 +134,7 @@ const UnifiedChatScreen: React.FC<UnifiedChatScreenProps> = ({ currentUser }) =>
         setShowMenuForMessage(null);
     };
 
-    if (!chat || !otherUser) return <PageLayout title="Loading..."><div className="p-8 text-center">Loading chat...</div></PageLayout>;
+    if (!chat || !otherUser) return <PageLayout title="Chat"><div className="p-8 text-center text-text-secondary">No chat found. Start a conversation from the product or messages page.</div></PageLayout>;
 
     const participants = [currentUser, otherUser];
 

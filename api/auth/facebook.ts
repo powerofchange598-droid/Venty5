@@ -15,10 +15,18 @@ export default async function handler(req: any, res: any) {
     const profile = await me.json();
     if (!me.ok) return res.status(401).json({ ok: false, error: 'invalid_token' });
     const identity = { provider: 'facebook', providerId: String(profile.id), email: profile.email, name: profile.name, picture: profile.picture?.data?.url };
-    const user = upsertUserFromIdentity(identity);
-    const jwt = await signSession({ userId: user.userId });
+    const user = await upsertUserFromIdentity(identity);
+    const sessionPayload = {
+        userId: user.userId,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        role: user.role || 'user',
+        provider: 'facebook'
+    };
+    const jwt = await signSession(sessionPayload);
     setSessionCookie(res, jwt);
-    return res.json({ ok: true, user });
+    return res.json({ ok: true, user: sessionPayload, token: jwt });
   } catch (e: any) {
     return res.status(500).json({ ok: false, error: e?.message || 'server_error' });
   }

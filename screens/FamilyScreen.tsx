@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { User, Family, AppNotification, Goal, PurchaseRequest, SmartNotification } from '../types';
+import { User, Family, AppNotification, Goal, PurchaseRequest, SmartNotification, Transaction } from '../types';
 import Card from '../components/Card';
 import VentyButton from '../components/VentyButton';
 import { UsersIcon, UserMinusIcon, DocumentDuplicateIcon, LightBulbIcon, BellAlertIcon, CheckCircleIcon, ChatBubbleLeftRightIcon, PencilIcon, CheckIcon, XMarkIcon, ShoppingCartIcon, ShieldCheckIcon, EyeIcon, EyeSlashIcon, PlusIcon } from '@heroicons/react/24/solid';
 import PageLayout from '../components/PageLayout';
 import { useLocalization } from '../hooks/useLocalization';
 import { generateSmartNotifications } from '../utils/notificationGenerator';
-import { mockTransactions } from '../data/mockData';
 import VerifiedBadge from '../components/VerifiedBadge';
 import { safeFormatDate } from '../utils/dateUtils';
 
@@ -17,6 +16,7 @@ interface FamilyScreenProps {
     family: Family;
     onUpdateFamily: (family: Family) => void;
     purchaseRequests: PurchaseRequest[];
+    transactions: Transaction[];
 }
 
 const getTomorrowISO = () => {
@@ -164,7 +164,7 @@ const FamilySecurityCard: React.FC<{ family: Family; onUpdate: (updatedFamily: F
 };
 
 
-const FamilyScreen: React.FC<FamilyScreenProps> = ({ user, family: initialFamily, onUpdateFamily, purchaseRequests }) => {
+const FamilyScreen: React.FC<FamilyScreenProps> = ({ user, family: initialFamily, onUpdateFamily, purchaseRequests, transactions }) => {
     const [family, setFamily] = useState<Family>(initialFamily);
     const { formatCurrency } = useLocalization();
     const navigate = useNavigate();
@@ -181,9 +181,9 @@ const FamilyScreen: React.FC<FamilyScreenProps> = ({ user, family: initialFamily
     }, [initialFamily]);
 
     const notifications: SmartNotification[] = useMemo(() => {
-        return generateSmartNotifications(user, mockTransactions)
+        return generateSmartNotifications(user, transactions)
             .filter(n => n.type === 'goal' || n.type === 'ai_suggestion');
-    }, [user]);
+    }, [user, transactions]);
 
     const pendingRequestsCount = purchaseRequests.filter(r => r.status === 'pending').length;
 

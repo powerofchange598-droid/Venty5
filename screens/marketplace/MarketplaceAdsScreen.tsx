@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, AdType, MerchantAd, Product, AdSubscription, AdPlanId } from '../../types';
-import { mockProducts } from '../../data/mockData';
 import Card from '../../components/Card';
 import VentyButton from '../../components/VentyButton';
 import MerchantPageLayout from '../../components/merchant/MerchantPageLayout';
@@ -50,15 +49,7 @@ const packages: AdPackage[] = [
     { id: 'premium', name: 'Premium Plan', price: 50, durationDays: 30 },
 ];
 
-const analyticsData: AnalyticsData[] = [
-    { name: 'Day 1', impressions: 4000, clicks: 240 },
-    { name: 'Day 2', impressions: 3000, clicks: 139 },
-    { name: 'Day 3', impressions: 2000, clicks: 980 },
-    { name: 'Day 4', impressions: 2780, clicks: 390 },
-    { name: 'Day 5', impressions: 1890, clicks: 480 },
-    { name: 'Day 6', impressions: 2390, clicks: 380 },
-    { name: 'Day 7', impressions: 3490, clicks: 430 },
-];
+// No synthetic analytics; charts render only when real time-series data exists
 
 // --- MAIN SCREEN ---
 interface MarketplaceAdsScreenProps {
@@ -182,7 +173,7 @@ const AdCampaignsSection: React.FC<{ ads: MerchantAd[]; onCreateClick: () => voi
         ) : (
             <div className="space-y-3">
                 {ads.map(ad => {
-                    const product = ad.adType === 'product' ? mockProducts.find(p => p.id === ad.content.productId) : null;
+                    const product = null;
                     return <Card key={ad.id} className="!p-3 flex items-center space-x-3 bg-ui-background"><div className="w-16 h-16 bg-ui-border rounded-lg flex-shrink-0"><img src={product?.imageUrl || ad.content.imageUrl || ''} className="w-full h-full object-cover rounded-lg"/></div><div className="flex-grow"><p className="font-bold">{product?.title || ad.content.caption || ad.adType.replace('_', ' ')}</p><p className="text-sm capitalize text-ui-secondary">{ad.adType.replace('_', ' ')}</p></div><div className="text-right"><p className="font-semibold text-feedback-success">Impressions: {ad.impressions.toLocaleString()}</p><p className="text-sm">Clicks: {ad.clicks.toLocaleString()}</p></div></Card>;
                 })}
             </div>
@@ -212,18 +203,12 @@ const AnalyticsDashboard: React.FC<{ ads: MerchantAd[]; user: User }> = ({ ads, 
                 <div className="card-gradient-analytics p-4 rounded-xl"><p className="text-sm opacity-80">CTR</p><p className="text-3xl font-bold">{ctr.toFixed(2)}%</p></div>
                 <div className="card-gradient-analytics p-4 rounded-xl"><p className="text-sm opacity-80">Conversions</p><p className="text-3xl font-bold">{totalConversions}</p></div>
             </div>
-            <div className="h-72">
-                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={analyticsData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--ui-border))" />
-                        <XAxis dataKey="name" stroke="rgb(var(--ui-secondary))" />
-                        <YAxis stroke="rgb(var(--ui-secondary))" />
-                        <RechartsTooltip contentStyle={{ backgroundColor: 'rgb(var(--ui-card))', borderColor: 'rgb(var(--ui-border))' }} />
-                        <Legend />
-                        <Line type="monotone" dataKey="impressions" stroke="#1E3A8A" strokeWidth={2} activeDot={{ r: 8 }} />
-                        <Line type="monotone" dataKey="clicks" stroke="#10B981" strokeWidth={2} />
-                    </LineChart>
-                </ResponsiveContainer>
+            <div className="h-72 flex items-center justify-center">
+                {totalImpressions > 0 || totalClicks > 0 ? (
+                    <p className="text-ui-secondary">Charts require time-series data. Collect more ad data to enable analytics.</p>
+                ) : (
+                    <p className="text-ui-secondary">No analytics yet. Launch campaigns to see insights here.</p>
+                )}
             </div>
         </Card>
     );
@@ -318,7 +303,7 @@ const ChooseTypeStep: React.FC<{ availableTypes: AdTypeInfo[]; selectedType: AdT
 );
 
 const ConfigureAdStep: React.FC<{ type: AdTypeInfo; content: Partial<MerchantAd['content']>; setContent: (c: Partial<MerchantAd['content']>) => void; budget: number; setBudget: (b: number) => void; duration: number; setDuration: (d: number) => void; user: User; }> = ({ type, content, setContent, budget, setBudget, duration, setDuration, user }) => {
-    const merchantProducts = useMemo(() => mockProducts.filter(p => p.ownerId === user.id), [user.id]);
+    const merchantProducts = useMemo(() => [], [user.id]);
     
     return (
         <div className="space-y-6">

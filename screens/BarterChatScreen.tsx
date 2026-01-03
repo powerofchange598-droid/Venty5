@@ -14,11 +14,7 @@ interface ExchangeChatScreenProps {
     currentUser: User;
 }
 
-const userColors = [
-    'text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500',
-    'text-pink-500', 'text-teal-500', 'text-red-500', 'text-indigo-500'
-];
-const getUserColor = (userId: string) => userColors[parseInt(userId, 10) % userColors.length];
+const getUserColor = (_userId: string) => 'text-text-primary';
 
 const ExchangeChatScreen: React.FC<ExchangeChatScreenProps> = ({ currentUser }) => {
     const { chatId } = useParams<{ chatId: string }>();

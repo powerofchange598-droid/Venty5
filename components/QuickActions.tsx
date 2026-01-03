@@ -88,17 +88,22 @@ const ExpenseForm: React.FC<{
     onSubmit: (data: ExpenseData) => void;
     onClose: () => void;
 }> = ({ categories, onSubmit, onClose }) => {
+    const { toEnglishDigits } = useLocalization() as any;
     const [amount, setAmount] = useState('');
     const [category, setCategory] = useState(categories[0]?.name || '');
     const [date, setDate] = useState(todayISO);
     const [notes, setNotes] = useState('');
+    const [error, setError] = useState<string | null>(null);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!amount || !category) return;
+        const n = Number(amount);
+        if (!Number.isFinite(n) || n <= 0) { setError('Enter a valid amount greater than 0'); return; }
+        if (!category || !category.trim()) { setError('Select a category'); return; }
+        setError(null);
         onSubmit({
-            amount: parseFloat(amount),
-            category,
+            amount: n,
+            category: category.trim(),
             date,
             notes,
         });
@@ -109,7 +114,7 @@ const ExpenseForm: React.FC<{
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
                 <label className="font-medium text-sm">Amount</label>
-                <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" required className="w-full mt-1 p-3 bg-ui-background rounded-lg border border-ui-border"/>
+                <input type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(toEnglishDigits ? toEnglishDigits(e.target.value) : e.target.value)} placeholder="0.00" required className="w-full mt-1 p-3 bg-ui-background rounded-lg border border-ui-border"/>
             </div>
             <div>
                 <label className="font-medium text-sm">Category</label>
@@ -125,6 +130,7 @@ const ExpenseForm: React.FC<{
                 <label className="font-medium text-sm">Notes (Optional)</label>
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="e.g., Lunch with colleagues" className="w-full mt-1 p-3 bg-ui-background rounded-lg border border-ui-border"></textarea>
             </div>
+            {error && <p className="text-xs text-feedback-error bg-feedback-error-bg rounded px-2 py-1">{error}</p>}
             <VentyButton onClick={() => {}}>Add Expense</VentyButton>
         </form>
     );

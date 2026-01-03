@@ -181,7 +181,7 @@ export const mockOtherUser: User = {
     },
     inventory: [],
     currency: 'USD',
-    langCode: 'ar',
+    langCode: 'en',
     countryCode: 'EG',
     referralCode: 'VENTY-AHMED-456',
 };
@@ -223,7 +223,7 @@ export const mockMerchantUser: User = {
     contactInfo: { phone: '201122334455', address: '45 Kasr El Nil St, Cairo, Egypt', preferredMeetup: 'N/A' },
     inventory: [],
     currency: 'USD',
-    langCode: 'ar',
+    langCode: 'en',
     countryCode: 'EG',
 };
 

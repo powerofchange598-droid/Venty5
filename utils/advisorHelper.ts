@@ -1,5 +1,4 @@
 import { User, BudgetCategory } from '../types';
-import { mockInvestmentOptions } from '../data/mockData';
 
 export interface InvestmentNudge {
     categoryName: string;
@@ -12,18 +11,8 @@ export interface InvestmentNudge {
     };
 }
 
-// Find a simple, common investment suggestion
-const getSimpleInvestmentSuggestion = (): { name: string; category: string } => {
-    const etf = mockInvestmentOptions.find(o => o.ticker === 'VOO'); // S&P 500 ETF
-    const gold = mockInvestmentOptions.find(o => o.ticker === 'XAU'); // Gold
-    
-    // Return a default if not found, though they are hardcoded
-    if (!etf || !gold) return { name: 'an Index Fund', category: 'ETF'};
-    
-    // Randomly pick one for variety
-    return Math.random() > 0.5 ? 
-        { name: etf.name, category: etf.type } : 
-        { name: gold.name, category: gold.type };
+const getSimpleInvestmentSuggestion = (): { name: string; category: string } | null => {
+    return null;
 };
 
 export const generateInvestmentNudge = (user: User, budget: BudgetCategory[]): InvestmentNudge | null => {
@@ -44,6 +33,8 @@ export const generateInvestmentNudge = (user: User, budget: BudgetCategory[]): I
     }
 
     const suggestedInvestment = getSimpleInvestmentSuggestion();
+
+    if (!suggestedInvestment) return null;
 
     return {
         categoryName: highSpendingCategory.name,

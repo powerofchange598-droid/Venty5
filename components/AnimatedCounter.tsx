@@ -10,7 +10,7 @@ interface AnimatedCounterProps {
 
 const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ to, isCurrency = false }) => {
     const count = useMotionValue(0);
-    const { formatCurrency } = useLocalization();
+    const { formatCurrencyEn, formatNumberEn } = useLocalization();
 
     useEffect(() => {
         const animation = animate(count, to, {
@@ -22,9 +22,9 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ to, isCurrency = fals
     
     const displayValue = useTransform(count, latest => {
         if (isCurrency) {
-            return formatCurrency(latest);
+            return formatCurrencyEn(latest);
         }
-        return Math.round(latest).toLocaleString();
+        return formatNumberEn(Math.round(latest));
     });
 
     return <motion.span>{displayValue}</motion.span>;

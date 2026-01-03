@@ -16,13 +16,15 @@ import emailLoginHandler from '../api/auth/email/login';
 import emailSignupHandler from '../api/auth/email/signup';
 import paypalCreateOrderHandler from '../api/paypal/create-order';
 import paypalCaptureOrderHandler from '../api/paypal/capture-order';
+import { getDb } from '../lib/db';
+import { verifySession, signSession, setSessionCookie } from '../api/_utils';
 
 dotenv.config();
 
 const app = express();
 app.use(express.json()); // Use express.json() for PayPal/Promo routes. _utils.ts handles this for Auth.
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8081;
 const PAYPAL_ENV = process.env.PAYPAL_ENV || 'sandbox';
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
 const PAYPAL_SECRET = process.env.PAYPAL_SECRET;
@@ -61,6 +63,7 @@ const allowedOrigins = [
 app.use(cors({
   origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Authorization', 'Content-Type'],
   credentials: true
 }));
 
@@ -97,7 +100,8 @@ function storeTransaction(record: any) {
       existing.unshift({ savedAt: new Date().toISOString(), ...record });
       fs.writeFileSync(file, JSON.stringify(existing, null, 2));
     } catch (err) {
-  console.error('Failed to store transaction:', err);
+      console.error('Failed to store transaction:', err);
+    }
 }
 
 // --- Basic User Profile Persistence ---
@@ -281,7 +285,67 @@ app.delete('/api/users/:userId/goals/:id', (req, res) => {
   if (!writeArray(file, next)) return res.status(500).json({ ok: false });
   return res.json({ ok: true });
 });
-}
+
+// Delete entire user account and all associated data
+app.delete('/api/users/:userId', (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const profileFile = path.join(DATA_DIR, 'profiles', `${userId}.json`);
+    const userDir = path.join(DATA_DIR, 'user-data', userId);
+    const sessionsDir = path.join(DATA_DIR, 'sessions');
+    const usageFile = path.join(DATA_DIR, 'promo-usage.json');
+    const usersFile = USERS_FILE;
+
+    try { if (fs.existsSync(profileFile)) fs.rmSync(profileFile, { force: true }); } catch {}
+    try { if (fs.existsSync(userDir)) fs.rmSync(userDir, { recursive: true, force: true }); } catch {}
+
+    try {
+      if (fs.existsSync(usageFile)) {
+        const usage = JSON.parse(fs.readFileSync(usageFile, 'utf-8') || '[]');
+        const filtered = (Array.isArray(usage) ? usage : []).filter((u: any) => u.userId !== userId);
+        fs.writeFileSync(usageFile, JSON.stringify(filtered, null, 2));
+      }
+    } catch {}
+
+    try {
+      if (fs.existsSync(usersFile)) {
+        const users = JSON.parse(fs.readFileSync(usersFile, 'utf-8') || '[]');
+        const filtered = (Array.isArray(users) ? users : []).filter((u: any) => u.userId !== userId);
+        fs.writeFileSync(usersFile, JSON.stringify(filtered, null, 2));
+      }
+    } catch {}
+
+    Promise.resolve().then(async () => {
+      try {
+        const db = await getDb();
+        await db.run('DELETE FROM users WHERE id = ?', userId);
+      } catch {}
+    });
+
+    try {
+      if (fs.existsSync(sessionsDir)) {
+        const files = fs.readdirSync(sessionsDir);
+        for (const f of files) {
+          const p = path.join(sessionsDir, f);
+          try {
+            const text = fs.readFileSync(p, 'utf-8') || '{}';
+            const json = JSON.parse(text);
+            if (json?.userId === userId) fs.rmSync(p, { force: true });
+          } catch {}
+        }
+      }
+    } catch {}
+
+    return res.json({ ok: true });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: e?.message || 'delete_failed' });
+  }
+});
+
+// Health check
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true, env: process.env.NODE_ENV || 'development' });
+});
 
 // --- Auth Routes (Delegate to Vercel Handlers) ---
 const handle = (handler: any) => async (req: any, res: any) => {
@@ -342,6 +406,285 @@ app.post('/api/promo-codes', (req, res) => {
     codes.push(newCode);
     saveJson(PROMO_CODES_FILE, codes);
     res.json({ ok: true, code: newCode });
+});
+
+// --- Market Endpoints ---
+const MARKET_DIR = path.join(DATA_DIR, 'market');
+function merchantFile(slug: string) {
+  return path.join(MARKET_DIR, 'merchants', `${slug}.json`);
+}
+function merchantProductsFile(slug: string) {
+  return path.join(MARKET_DIR, 'merchants', slug, 'products.json');
+}
+function productFile(id: string) {
+  return path.join(DATA_DIR, 'market', 'products', `${id}.json`);
+}
+function userTransactionsFile(userId: string) {
+  return path.join(DATA_DIR, 'user-data', userId, 'transactions.json');
+}
+function userExpenseCategoriesFile(userId: string) {
+  return path.join(DATA_DIR, 'user-data', userId, 'expense-categories.json');
+}
+
+function ensureDefaultExpenseCategories(userId: string) {
+  const file = userExpenseCategoriesFile(userId);
+  let items = readArray(file);
+  if (!Array.isArray(items) || items.length === 0) {
+    const defaults = ['Food','Transport','Shopping','Bills','Entertainment','Health','Other'];
+    items = defaults.map((name, idx) => ({
+      id: `cat_${Date.now().toString(36)}_${idx}`,
+      name,
+      icon: '',
+      color: '',
+      user_id: userId,
+      is_default: true,
+      createdAt: new Date().toISOString()
+    }));
+    writeArray(file, items);
+  }
+  return items;
+}
+
+// --- Auth Middleware ---
+function getTokenFromReq(req: any): string {
+  const auth = String(req.headers.authorization || '');
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (m && m[1]) return m[1];
+  const cookie = String(req.headers.cookie || '');
+  const sid = cookie.split(';').map(x => x.trim()).find(x => x.startsWith('venty_session='))?.split('=')[1] || '';
+  return sid || '';
+}
+async function requireAuth(req: any, res: any, next: any) {
+  try {
+    const token = getTokenFromReq(req);
+    if (!token) return res.status(401).json({ ok: false, error: 'auth_required', message: 'Authorization token required.' });
+    const payload = await verifySession(token).catch(() => null);
+    if (!payload?.userId) return res.status(401).json({ ok: false, error: 'token_invalid_or_expired', message: 'Your session has expired. Please sign in again.' });
+    req.user = { id: payload.userId, email: payload.email, name: payload.name, role: payload.role || 'user' };
+    req.token = token;
+    next();
+  } catch (e: any) {
+    return res.status(401).json({ ok: false, error: 'auth_failed', message: e?.message || 'Authentication failed.' });
+  }
+}
+function requireMerchant(req: any, res: any, next: any) {
+  const role = req?.user?.role || 'user';
+  if (role !== 'merchant') return res.status(403).json({ ok: false, error: 'forbidden', message: 'Merchant role required.' });
+  next();
+}
+
+// Update role for current session and return refreshed token
+app.post('/api/auth/role', requireAuth, async (req, res) => {
+  try {
+    const role = String(req.body?.role || '').toLowerCase() === 'merchant' ? 'merchant' : 'user';
+    const payload = { userId: req.user.id, email: req.user.email, name: req.user.name, role };
+    const jwt = await signSession(payload);
+    setSessionCookie(res, jwt);
+    return res.json({ ok: true, token: jwt, role });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: e?.message || 'server_error' });
+  }
+});
+
+// (use unified routes below)
+
+app.post('/api/market/merchants/:slug/products', requireAuth, requireMerchant, (req, res) => {
+  try {
+    const { slug } = req.params as any;
+    const merchantF = merchantFile(slug);
+    if (!fs.existsSync(merchantF)) {
+      const error = 'merchant_not_found';
+      console.error('Product save failed:', { slug, payload: req.body, error });
+      return res.status(404).json({ ok: false, error, message: 'Merchant not found.' });
+    }
+    const merchant = loadJson(merchantF, {});
+    const payload = req.body || {};
+    const title = String(payload.title || payload.product_name || '').trim();
+    const category = String(payload.category || '').trim();
+    const priceNum = Number(payload.price);
+    if (!title) {
+      const error = 'product_name_required';
+      console.error('Product save failed:', { slug, payload, error });
+      return res.status(400).json({ ok: false, error, message: 'Product name is required.' });
+    }
+    if (!Number.isFinite(priceNum) || priceNum <= 0) {
+      const error = 'invalid_price';
+      console.error('Product save failed:', { slug, payload, error });
+      return res.status(400).json({ ok: false, error, message: 'Price is required and must be greater than 0.' });
+    }
+    if (!category) {
+      const error = 'category_required';
+      console.error('Product save failed:', { slug, payload, error });
+      return res.status(400).json({ ok: false, error, message: 'Category is required.' });
+    }
+    const status = String(payload.status || 'draft').toLowerCase() === 'published' ? 'published' : 'draft';
+    const id = `prod_${Date.now().toString(36)}`;
+    const createdAt = String(payload.created_at || '') || new Date().toISOString();
+    const product = {
+      id,
+      title,
+      price: priceNum,
+      originalPrice: Number(payload.originalPrice) || undefined,
+      status,
+      createdAt,
+      merchant: merchant.storeName || merchant.name || slug,
+      imageUrl: String(payload.imageUrl || 'https://picsum.photos/seed/venty-product/300/200'),
+      category,
+      stock: Number(payload.stock) || 0,
+      ownerId: String(payload.ownerId || ''),
+      ownerName: String(payload.ownerName || ''),
+      condition: payload.condition || 'New',
+      isDropshipped: !!payload.isDropshipped,
+      sourcePrice: Number(payload.sourcePrice) || undefined,
+      publishDate: payload.publishDate || undefined,
+      endDate: payload.endDate || undefined,
+      description: String(payload.description || ''),
+      merchantId: String(merchant.id || ''),
+    };
+    const pFile = productFile(id);
+    try {
+      console.log('Saving product file:', pFile);
+    } catch {}
+    saveJson(pFile, product);
+    try {
+      const exists = fs.existsSync(pFile);
+      console.log('Product file saved exists:', exists);
+    } catch {}
+    const listFile = merchantProductsFile(slug);
+    let ids: string[] = [];
+    try { ids = loadJson(listFile, []); } catch {}
+    if (!Array.isArray(ids)) ids = [];
+    ids.unshift(id);
+    saveJson(listFile, ids);
+    return res.status(201).json({ ok: true, id, product });
+  } catch (e: any) {
+    console.error('Product save failed:', { payload: req.body, error: e?.message || String(e) });
+    return res.status(500).json({ ok: false, error: 'save_failed', message: e?.message || 'Unable to save product.' });
+  }
+});
+
+app.get('/api/products/:id', (req, res) => {
+  const { id } = req.params as any;
+  const file = productFile(id);
+  if (!fs.existsSync(file)) return res.status(404).json({ ok: false, error: 'not_found' });
+  const product = loadJson(file, {});
+  return res.json({ ok: true, product });
+});
+
+app.get('/api/users/:userId/transactions', (req, res) => {
+  const { userId } = req.params as any;
+  const file = userTransactionsFile(userId);
+  const items = readArray(file);
+  return res.json({ ok: true, items });
+});
+
+app.post('/api/users/:userId/transactions', (req, res) => {
+  const { userId } = req.params as any;
+  const file = userTransactionsFile(userId);
+  const items = readArray(file);
+  const payload = req.body || {};
+  const type = String(payload.type || '').toLowerCase();
+  if (!['income', 'expense'].includes(type)) return res.status(400).json({ ok: false, error: 'invalid_type' });
+  const amount = Number(payload.amount);
+  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ ok: false, error: 'amount_must_be_positive' });
+  const date = payload.date && String(payload.date);
+  const d = new Date(date || '');
+  if (!date || isNaN(d.getTime())) return res.status(400).json({ ok: false, error: 'invalid_date' });
+  if (type === 'expense') {
+    const catId = String(payload.categoryId || '').trim();
+    if (!catId) return res.status(400).json({ ok: false, error: 'category_required', message: 'Category is required.' });
+    const cats = ensureDefaultExpenseCategories(userId);
+    const cat = cats.find((c: any) => c.id === catId);
+    if (!cat) return res.status(404).json({ ok: false, error: 'category_not_found' });
+    payload._categoryResolvedName = cat.name;
+  }
+  if (type === 'income' && !payload.source) return res.status(400).json({ ok: false, error: 'source_required' });
+  const id = `tx_${Date.now().toString(36)}`;
+  const tx = {
+    id,
+    description: payload.notes || '',
+    amount: type === 'income' ? amount : -amount,
+    date: d.toISOString(),
+    category: type === 'expense' ? String(payload._categoryResolvedName || '') : (payload.source || ''),
+    categoryId: type === 'expense' ? String(payload.categoryId || '') : undefined,
+    icon: '',
+    type,
+    expType: payload.expType === 'fixed' ? 'fixed' : (payload.expType === 'variable' ? 'variable' : undefined),
+    recurring: !!payload.recurring,
+    scope: payload.scope === 'merchant' ? 'merchant' : 'personal',
+  };
+  items.unshift(tx);
+  if (!writeArray(file, items)) return res.status(500).json({ ok: false });
+  return res.json({ ok: true, item: tx });
+});
+
+// Expense Categories
+app.get('/api/users/:userId/expense-categories', (req, res) => {
+  const { userId } = req.params as any;
+  const items = ensureDefaultExpenseCategories(userId);
+  return res.json({ ok: true, items });
+});
+
+app.post('/api/users/:userId/expense-categories', (req, res) => {
+  const { userId } = req.params as any;
+  const file = userExpenseCategoriesFile(userId);
+  const items = readArray(file);
+  const payload = req.body || {};
+  const name = String(payload.name || '').trim();
+  if (!name) return res.status(400).json({ ok: false, error: 'name_required', message: 'Category name is required.' });
+  if (items.some((i: any) => String(i.name).toLowerCase() === name.toLowerCase())) {
+    return res.status(409).json({ ok: false, error: 'category_exists', message: 'Category already exists.' });
+  }
+  const id = `cat_${Date.now().toString(36)}`;
+  const newItem = {
+    id,
+    name,
+    icon: String(payload.icon || ''),
+    color: String(payload.color || ''),
+    user_id: userId,
+    is_default: false,
+    createdAt: new Date().toISOString()
+  };
+  items.push(newItem);
+  if (!writeArray(file, items)) return res.status(500).json({ ok: false, error: 'save_failed' });
+  return res.json({ ok: true, item: newItem });
+});
+
+app.put('/api/users/:userId/transactions/:id', (req, res) => {
+  const { userId, id } = req.params as any;
+  const file = userTransactionsFile(userId);
+  const items = readArray(file);
+  const idx = items.findIndex((i: any) => i.id === id);
+  if (idx < 0) return res.status(404).json({ ok: false, error: 'not_found' });
+  const curr = items[idx];
+  const payload = req.body || {};
+  if (payload.amount !== undefined) {
+    const amt = Number(payload.amount);
+    if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ ok: false, error: 'amount_must_be_positive' });
+    items[idx].amount = curr.type === 'income' ? amt : -amt;
+  }
+  if (payload.date !== undefined) {
+    const d = new Date(String(payload.date || ''));
+    if (isNaN(d.getTime())) return res.status(400).json({ ok: false, error: 'invalid_date' });
+    items[idx].date = d.toISOString();
+  }
+  if (payload.category !== undefined) items[idx].category = String(payload.category || '');
+  if (payload.source !== undefined) items[idx].category = String(payload.source || '');
+  if (payload.notes !== undefined) items[idx].description = String(payload.notes || '');
+  if (payload.expType !== undefined) items[idx].expType = payload.expType === 'fixed' ? 'fixed' : (payload.expType === 'variable' ? 'variable' : undefined);
+  if (payload.recurring !== undefined) items[idx].recurring = !!payload.recurring;
+  if (payload.scope !== undefined) items[idx].scope = payload.scope === 'merchant' ? 'merchant' : 'personal';
+  if (!writeArray(file, items)) return res.status(500).json({ ok: false });
+  return res.json({ ok: true, item: items[idx] });
+});
+
+app.delete('/api/users/:userId/transactions/:id', (req, res) => {
+  const { userId, id } = req.params as any;
+  const file = userTransactionsFile(userId);
+  const items = readArray(file);
+  const next = items.filter((i: any) => i.id !== id);
+  if (!writeArray(file, next)) return res.status(500).json({ ok: false });
+  return res.json({ ok: true });
 });
 
 app.put('/api/promo-codes/:code', (req, res) => {
@@ -593,8 +936,95 @@ app.post('/api/webviewClick', (req, res) => {
     }
 });
 
+app.get('/api/market/merchants/:slug', (req, res) => {
+  try {
+    const slug = req.params.slug;
+    const file = path.join(DATA_DIR, 'market', 'merchants', `${slug}.json`);
+    if (!fs.existsSync(file)) return res.status(404).json({ ok: false, error: 'not_found' });
+    const data = JSON.parse(fs.readFileSync(file, 'utf-8') || '{}');
+    return res.json({ ok: true, merchant: data });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: e?.message || 'server_error' });
+  }
+});
+
+app.get('/api/market/merchants/:slug/products', (req, res) => {
+  try {
+    const slug = req.params.slug;
+    const listFile = path.join(DATA_DIR, 'market', 'merchants', slug, 'products.json');
+    if (!fs.existsSync(listFile)) return res.json({ ok: true, items: [] });
+    const ids: string[] = JSON.parse(fs.readFileSync(listFile, 'utf-8') || '[]');
+    const items = ids.map(id => {
+      try {
+        const pFile = path.join(DATA_DIR, 'market', 'products', `${id}.json`);
+        if (!fs.existsSync(pFile)) return null;
+        const txt = fs.readFileSync(pFile, 'utf-8') || '{}';
+        return JSON.parse(txt || '{}');
+      } catch {
+        return null;
+      }
+    }).filter(Boolean);
+    return res.json({ ok: true, items });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: e?.message || 'server_error' });
+  }
+});
+
+
+app.get('/api/market/products', (req, res) => {
+  try {
+    const productsDir = path.join(DATA_DIR, 'market', 'products');
+    if (!fs.existsSync(productsDir)) return res.json({ ok: true, items: [] });
+    
+    const files = fs.readdirSync(productsDir).filter(f => f.endsWith('.json'));
+    const items = files.map(f => {
+      try {
+        const txt = fs.readFileSync(path.join(productsDir, f), 'utf-8');
+        return JSON.parse(txt);
+      } catch {
+        return null;
+      }
+    }).filter(Boolean);
+    
+    return res.json({ ok: true, items });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: e?.message || 'server_error' });
+  }
+});
+
+app.get('/api/market/products/:id', (req, res) => {
+  try {
+    const id = req.params.id;
+    const file = path.join(DATA_DIR, 'market', 'products', `${id}.json`);
+    if (!fs.existsSync(file)) return res.status(404).json({ ok: false, error: 'not_found' });
+    const data = JSON.parse(fs.readFileSync(file, 'utf-8') || '{}');
+    return res.json({ ok: true, product: data });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: e?.message || 'server_error' });
+  }
+});
+
+// (removed duplicate route)
+
+app.put('/api/market/merchants/:slug', (req, res) => {
+  try {
+    const slug = req.params.slug;
+    const file = path.join(DATA_DIR, 'market', 'merchants', `${slug}.json`);
+    const curr = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf-8') || '{}') : {};
+    const payload = req.body || {};
+    const next = { ...curr, ...payload, updatedAt: new Date().toISOString() };
+    const dir = path.dirname(file);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(next, null, 2));
+    return res.json({ ok: true, merchant: next });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: e?.message || 'server_error' });
+  }
+});
+
 app.get('/api/health', (_req, res) => res.json({ ok: true, env: PAYPAL_ENV, hasCredentials: HAS_CREDENTIALS }));
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT} (TSX)`);
 });
+// Removed stray closing brace that caused “Declaration or statement expected.”

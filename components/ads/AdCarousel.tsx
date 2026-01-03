@@ -6,6 +6,7 @@ import { mockAllMerchants, mockProducts } from '../../data/mockData';
 import VentyButton from '../VentyButton';
 import { useWindowSize } from '../../hooks/useWindowSize';
 import { ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
+import { useLocalization } from '../../hooks/useLocalization';
 
 const SponsorTag: React.FC<{ merchantId: string }> = ({ merchantId }) => {
     const merchant = useMemo(() => mockAllMerchants.find(m => m.userId === merchantId || m.id === merchantId), [merchantId]);
@@ -104,6 +105,7 @@ const CarouselAd: React.FC<{ ad: MerchantAd }> = ({ ad }) => {
 };
 
 const FeaturedStoreAd: React.FC<{ ad: MerchantAd }> = ({ ad }) => {
+    const { formatNumberEn } = useLocalization();
     const merchant = useMemo(() => mockAllMerchants.find(m => m.id === ad.merchantId || m.userId === ad.merchantId), [ad.merchantId]);
     if (!merchant) return null;
 
@@ -113,7 +115,7 @@ const FeaturedStoreAd: React.FC<{ ad: MerchantAd }> = ({ ad }) => {
             <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-bg-primary">
                  <img src={merchant.logoUrl} alt={merchant.storeName} className="w-20 h-20 rounded-full object-contain bg-white mb-4 border-4 border-bg-tertiary" loading="lazy" />
                  <h3 className="font-bold text-2xl font-serif">{merchant.storeName}</h3>
-                 <p className="text-sm text-text-secondary mt-1">⭐ {merchant.rating} | {merchant.followersCount.toLocaleString()} followers</p>
+                 <p className="text-sm text-text-secondary mt-1">⭐ {merchant.rating} | {formatNumberEn(merchant.followersCount)} followers</p>
                  <VentyButton onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} variant="secondary" className="!w-auto !py-2 !px-6 !text-sm mt-4">
                     Discover Store
                 </VentyButton>

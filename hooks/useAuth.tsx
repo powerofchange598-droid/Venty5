@@ -1,158 +1,137 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { getAuth } from '../auth/firebase';
-import {
-  FacebookAuthProvider,
-  OAuthProvider,
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged,
-  User as FirebaseUser,
-} from 'firebase/auth';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { User } from '../types';
+import { mockUser } from '../data/mockData';
 
 export interface AuthContextType {
-  user: FirebaseUser | null;
+  user: User | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
-  signInWithFacebook: () => Promise<FirebaseUser | null>;
-  signInWithApple: () => Promise<FirebaseUser | null>;
-  signUpWithEmail: (email: string, password: string, name?: string) => Promise<FirebaseUser | null>;
-  signInWithEmail: (email: string, password: string) => Promise<FirebaseUser | null>;
-  signOut: () => Promise<void>;
+  signInWithFacebook: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
+  signUpWithEmail: (email: string, password: string, name?: string) => Promise<boolean>;
+  signInWithEmail: (email: string, password: string) => Promise<boolean>;
+  loginAsGuest: () => void;
+  logout: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem('ventyUser');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
+
   const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) || '';
 
-  // Helper to adapt backend user to Firebase User interface
-  const adaptUser = (backendUser: any): FirebaseUser => {
-    return {
-        uid: backendUser.userId || backendUser.id,
-        email: backendUser.email,
-        displayName: backendUser.name,
-        photoURL: backendUser.picture,
-        emailVerified: true,
-        isAnonymous: false,
-        metadata: {},
-        providerData: [],
-        refreshToken: '',
-        tenantId: null,
-        delete: async () => {},
-        getIdToken: async () => '',
-        getIdTokenResult: async () => ({} as any),
-        reload: async () => {},
-        toJSON: () => ({}),
-        phoneNumber: null,
-        providerId: 'google.com', // Default or dynamic
-    } as unknown as FirebaseUser;
+  const saveSession = (user: User, token: string) => {
+    localStorage.setItem('ventyAuthToken', token);
+    localStorage.setItem('ventyUser', JSON.stringify(user));
+    setUser(user);
   };
 
-  // Check for session on mount
+  const clearSession = () => {
+    localStorage.removeItem('ventyAuthToken');
+    localStorage.removeItem('ventyUser');
+    setUser(null);
+  };
+
+  const refreshSession = useCallback(async () => {
+    const token = localStorage.getItem('ventyAuthToken');
+
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      const data = await res.json();
+      
+      if (data.ok && data.user) {
+        const base = user || mockUser;
+        const fullUser: User = {
+            ...base,
+            id: data.user.userId || data.user.id,
+            email: data.user.email,
+            name: data.user.name,
+            profilePictureUrl: data.user.picture || base.profilePictureUrl,
+            isVerified: !!data.user.isVerified,
+            accountType: data.user.role === 'merchant' ? 'merchant' : (base.accountType || 'regular'),
+            merchantProfile: data.user.merchantProfile || undefined
+        } as User;
+        
+        const nextToken = data.token || token || '';
+        if (nextToken) saveSession(fullUser, nextToken); else setUser(fullUser);
+        const pic = fullUser.profilePictureUrl || '';
+        if (/^https?:/i.test(pic) && !pic.startsWith('data:')) {
+          try {
+            const resp = await fetch(pic, { mode: 'cors' });
+            const blob = await resp.blob();
+            const reader = new FileReader();
+            const dataUrl: string = await new Promise(resolve => {
+              reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+              reader.readAsDataURL(blob);
+            });
+            const patched = { ...fullUser, profilePictureUrl: dataUrl };
+            if (nextToken) saveSession(patched, nextToken); else setUser(patched);
+          } catch {}
+        }
+      } else {
+        // Token invalid
+        clearSession();
+      }
+    } catch (e) {
+      console.error("Session check failed", e);
+      // On error (e.g. network), we might want to keep the local user?
+      // But if 401, we should clear.
+      // api/auth/me returns {ok:false} on 401 caught internally, so we handled it above.
+    } finally {
+      setLoading(false);
+    }
+  }, [API_BASE, user]);
+
+  // 1. Initial Session Check
   useEffect(() => {
     let canceled = false;
-    (async () => {
-      try {
-        const r = await fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' });
-        const data = await r.json();
-        if (!canceled && data?.ok && data.user) {
-          setUser(adaptUser(data.user));
-        }
-      } catch (e) {
-          console.error("Session check failed", e);
-      } finally {
-        if (!canceled) setLoading(false);
-      }
-    })();
-    return () => { canceled = true; };
-  }, [API_BASE]);
-
-  // Sync with Firebase Auth (if used in parallel)
-  useEffect(() => {
-    const a = getAuth();
-    if (!a) return;
-    return onAuthStateChanged(a, (u) => {
-        if (u) {
-            // Prefer Firebase user if active, but we mostly rely on our backend session for Google
-            // This might conflict if we have both. 
-            // For now, if we have a backend user, we keep it. If Firebase emits, we might update.
-            // But since we moved Google to backend-only, Firebase won't emit for Google.
-            // It might emit for Facebook/Apple if they still use client-side flow.
-            setUser(u);
-        }
+    refreshSession().then(() => {
+       if (canceled) return;
     });
+    return () => { canceled = true; };
+  }, []); // Run once on mount (and if API_BASE changes)
+
+  // 2. Global Logout Listener (for 401s from api.ts)
+  useEffect(() => {
+    const handleLogoutEvent = () => {
+      clearSession();
+      window.location.href = '/'; // Redirect to home/login
+    };
+    window.addEventListener('auth:logout', handleLogoutEvent);
+    return () => window.removeEventListener('auth:logout', handleLogoutEvent);
   }, []);
 
   const signInWithGoogle = async () => {
-    try {
-      const returnTo = window.location.pathname || '/';
-      const state = encodeURIComponent(returnTo);
-      // Redirect to backend Google Auth handler
-      window.location.assign(`${API_BASE}/api/auth/google?state=${state}`);
-    } catch (e) {
-      console.error("Google Sign In Error", e);
-    }
+    const returnTo = window.location.pathname || '/';
+    const state = encodeURIComponent(returnTo);
+    window.location.assign(`${API_BASE}/api/auth/google?state=${state}`);
   };
 
   const signInWithFacebook = async () => {
-    try {
-      const provider = new FacebookAuthProvider();
-      const a = getAuth();
-      if (!a) throw new Error("Firebase not initialized");
-      const res = await signInWithPopup(a, provider);
-      const cred = FacebookAuthProvider.credentialFromResult(res) as any;
-      const accessToken = cred?.accessToken;
-      if (!accessToken) throw new Error("No access token");
-
-      const r = await fetch(`${API_BASE}/api/auth/facebook`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ accessToken }),
-      });
-      const data = await r.json();
-      if (!r.ok || !data?.ok) throw new Error("Backend verification failed");
-      
-      const u = adaptUser(data.user);
-      setUser(u);
-      return u;
-    } catch (e) {
-      console.error("Facebook Sign In Error", e);
-      return null;
-    }
+    // Placeholder - would need client-side SDK or redirect
+    console.warn("Facebook login not fully implemented in this demo");
   };
 
   const signInWithApple = async () => {
-    try {
-      const provider = new OAuthProvider('apple.com');
-      const a = getAuth();
-      if (!a) throw new Error("Firebase not initialized");
-      const res = await signInWithPopup(a, provider);
-      const cred = OAuthProvider.credentialFromResult(res) as any;
-      const idToken = cred?.idToken;
-      if (!idToken) throw new Error("No ID token");
-
-      const r = await fetch(`${API_BASE}/api/auth/apple`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ idToken }),
-      });
-      const data = await r.json();
-      if (!r.ok || !data?.ok) throw new Error("Backend verification failed");
-
-      const u = adaptUser(data.user);
-      setUser(u);
-      return u;
-    } catch (e) {
-      console.error("Apple Sign In Error", e);
-      return null;
-    }
+     // Placeholder
+     console.warn("Apple login not fully implemented in this demo");
   };
 
   const signUpWithEmail = async (email: string, password: string, name?: string) => {
+    setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/auth/email/signup`, {
         method: 'POST',
@@ -160,16 +139,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({ email, password, name }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Signup failed');
-      setUser(adaptUser(data.user));
-      return adaptUser(data.user);
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Signup failed');
+      
+      const u = data.user;
+      const fullUser: User = {
+          ...mockUser,
+          id: u.userId,
+          email: u.email,
+          name: u.name,
+          profilePictureUrl: u.picture || (user || mockUser).profilePictureUrl,
+          isVerified: !!u.isVerified,
+          accountType: u.role === 'merchant' ? 'merchant' : 'regular',
+          merchantProfile: u.merchantProfile || undefined
+      } as User;
+      
+      saveSession(fullUser, data.token);
+      return true;
     } catch (e) {
       console.error("Signup Error", e);
-      throw e;
+      return false;
+    } finally {
+      setLoading(false);
     }
   };
 
   const signInWithEmail = async (email: string, password: string) => {
+    setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/auth/email/login`, {
         method: 'POST',
@@ -177,42 +172,87 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login failed');
-      setUser(adaptUser(data.user));
-      return adaptUser(data.user);
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Login failed');
+
+      const u = data.user;
+      // Merge with existing or mock
+      const fullUser: User = {
+          ...mockUser,
+          id: u.userId,
+          email: u.email,
+          name: u.name,
+          profilePictureUrl: u.picture || (user || mockUser).profilePictureUrl,
+          isVerified: !!u.isVerified,
+          accountType: u.role === 'merchant' ? 'merchant' : 'regular',
+          merchantProfile: u.merchantProfile || undefined
+      } as User;
+
+      saveSession(fullUser, data.token);
+      return true;
     } catch (e) {
       console.error("Login Error", e);
-      throw e;
+      return false;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const signOutFn = async () => {
-    const a = getAuth();
+  const loginAsGuest = () => {
+    const guestId = `guest_${Math.random().toString(36).slice(2, 10)}`;
+    const guestUser: User = {
+        ...mockUser,
+        id: guestId,
+        name: 'Guest',
+        email: 'guest@example.com',
+        salary: 0,
+        familyMembers: 1,
+        contactInfo: { phone: '', address: '', preferredMeetup: '' },
+        isGuest: true,
+        accountType: 'regular',
+        accountPlan: 'single',
+    } as User;
+    saveSession(guestUser, 'guest_token');
+  };
+
+  const logout = async () => {
     try {
-      await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+      await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST' });
     } catch {}
-    if (a) {
-      await signOut(a);
-    }
-    setUser(null);
+    clearSession();
   };
 
-  const value = useMemo(() => ({
-    user,
-    loading,
-    signInWithGoogle,
-    signInWithFacebook,
-    signInWithApple,
-    signUpWithEmail,
-    signInWithEmail,
-    signOut: signOutFn,
-  }), [user, loading]);
+  const updateUser = useCallback((updates: Partial<User>) => {
+    setUser(prev => {
+        if (!prev) return null;
+        const next = { ...prev, ...updates };
+        localStorage.setItem('ventyUser', JSON.stringify(next));
+        return next;
+    });
+  }, []);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      signInWithGoogle,
+      signInWithFacebook,
+      signInWithApple,
+      signUpWithEmail,
+      signInWithEmail,
+      loginAsGuest,
+      logout,
+      updateUser,
+      refreshSession
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

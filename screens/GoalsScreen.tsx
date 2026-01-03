@@ -2,7 +2,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Goal, InvestmentOption } from '../types';
-import { mockInvestmentOptions } from '../data/mockData';
 import PageLayout from '../components/PageLayout';
 import VentyButton from '../components/VentyButton';
 import { useLocalization } from '../hooks/useLocalization';
@@ -191,16 +190,16 @@ const InvestmentSimulator: React.FC<{ user: User }> = ({ user }) => {
     const { showToast } = useToast();
     const { theme } = useTheme();
 
-    const [initialAmount, setInitialAmount] = useState('10000');
-    const [duration, setDuration] = useState('10');
+    const [initialAmount, setInitialAmount] = useState('');
+    const [duration, setDuration] = useState('');
     const [riskLevel, setRiskLevel] = useState(2);
     const [simulationData, setSimulationData] = useState<SimulationDataPoint[] | null>(null);
     const [summary, setSummary] = useState<{ projectedValue: number; interestEarned: number; monthlyGrowth: number } | null>(null);
     const [isSimulating, setIsSimulating] = useState(false);
 
     const runSimulation = useCallback(() => {
-        const amount = parseFloat(initialAmount);
-        const years = parseInt(duration);
+        const amount = parseFloat(initialAmount || '0');
+        const years = parseInt(duration || '0');
         if (isNaN(amount) || amount <= 0 || isNaN(years) || years <= 0 || years > 50) {
             showToast("Please enter a valid amount and a duration up to 50 years.");
             return;
@@ -228,8 +227,6 @@ const InvestmentSimulator: React.FC<{ user: User }> = ({ user }) => {
             setIsSimulating(false);
         }, 800);
     }, [initialAmount, duration, riskLevel, showToast]);
-    
-    useEffect(() => { runSimulation(); }, []);
 
     const riskLabels = ['Low', 'Medium', 'High'];
     const themeColors = {
@@ -258,7 +255,7 @@ const InvestmentSimulator: React.FC<{ user: User }> = ({ user }) => {
                     </div>
                 </div>
                 <div className="mt-6 border-t border-border-primary pt-4 flex flex-col sm:flex-row gap-4">
-                    <VentyButton onClick={runSimulation} disabled={isSimulating} className="!w-full sm:!w-auto sm:px-8" label={isSimulating ? 'Calculating...' : 'Run Simulation'}/>
+                    <VentyButton onClick={runSimulation} disabled={isSimulating || !initialAmount || !duration} className="!w-full sm:!w-auto sm:px-8" label={isSimulating ? 'Calculating...' : 'Run Simulation'}/>
                 </div>
             </Card>
 
@@ -326,13 +323,7 @@ const InvestmentTipsPanel: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredOptions = useMemo(() => {
-        return mockInvestmentOptions.filter(opt => {
-            const matchesRisk = riskFilter === 'All' || opt.risk === riskFilter;
-            const matchesSearch = searchTerm === '' || 
-                opt.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                opt.ticker.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesRisk && matchesSearch;
-        });
+        return [];
     }, [riskFilter, searchTerm]);
 
     return (

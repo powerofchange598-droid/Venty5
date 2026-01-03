@@ -1,9 +1,11 @@
 import * as jose from 'jose';
 import bcrypt from 'bcryptjs';
 import { getDb } from '../lib/db';
+import fs from 'fs';
+import path from 'path';
 
 type Identity = { provider: string; providerId: string; email?: string; name?: string; picture?: string };
-type User = { userId: string; email?: string; name?: string; picture?: string; providers: { provider: string; providerUserId: string }[]; passwordHash?: string; createdAt: string };
+type User = { userId: string; email?: string; name?: string; picture?: string; providers: { provider: string; providerUserId: string }[]; passwordHash?: string; createdAt: string; merchantProfile?: any };
 
 const readBody = async (req: any) => {
   if (req.body) return req.body;
@@ -14,6 +16,38 @@ const readBody = async (req: any) => {
 };
 
 const getEnv = (k: string) => process.env[k] || '';
+
+const getMerchantProfile = (userId: string, email?: string) => {
+    try {
+        const merchantsDir = path.join(process.cwd(), 'server', 'data', 'market', 'merchants');
+        if (!fs.existsSync(merchantsDir)) return undefined;
+        
+        const files = fs.readdirSync(merchantsDir);
+        for (const file of files) {
+            try {
+                const content = fs.readFileSync(path.join(merchantsDir, file), 'utf-8');
+                const merchant = JSON.parse(content);
+                const fileSlug = file.replace('.json', '');
+                const emailSlug = email ? email.replace(/[^a-z0-9]/gi, '-') : null;
+
+                if (merchant.ownerId === userId || merchant.userId === userId || (email && merchant.email === email) || (emailSlug && fileSlug === emailSlug)) {
+                    // Ensure slug is present
+                    if (!merchant.slug) {
+                        merchant.slug = fileSlug;
+                    }
+                    // Ensure ownerId matches current user if we matched by email/slug
+                    if (merchant.ownerId !== userId) {
+                        merchant.ownerId = userId; 
+                        // Optional: we could save this back to disk to fix the link permanently, 
+                        // but for now let's just return the corrected object in memory.
+                    }
+                    return merchant;
+                }
+            } catch {}
+        }
+    } catch {}
+    return undefined;
+};
 
 const getUserByEmail = async (email: string): Promise<User | null> => {
     const db = await getDb();
@@ -28,8 +62,10 @@ const getUserByEmail = async (email: string): Promise<User | null> => {
         name: user.name,
         picture: user.picture,
         passwordHash: user.password_hash,
+        isVerified: !!user.is_verified,
         createdAt: user.created_at,
-        providers: providers.map(p => ({ provider: p.provider, providerUserId: p.provider_user_id }))
+        providers: providers.map(p => ({ provider: p.provider, providerUserId: p.provider_user_id })),
+        merchantProfile: getMerchantProfile(user.id, user.email)
     };
 };
 
@@ -77,7 +113,8 @@ const upsertUserFromIdentity = async (identity: Identity): Promise<User> => {
         picture: user.picture,
         passwordHash: user.password_hash,
         createdAt: user.created_at,
-        providers: providers.map(p => ({ provider: p.provider, providerUserId: p.provider_user_id }))
+        providers: providers.map(p => ({ provider: p.provider, providerUserId: p.provider_user_id })),
+        merchantProfile: getMerchantProfile(user.id, user.email)
     };
 };
 

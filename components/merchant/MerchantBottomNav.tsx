@@ -3,7 +3,6 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChartBarIcon, CubeIcon, ShoppingBagIcon, ChatBubbleLeftRightIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/solid';
 import { User } from '../../types';
-import { mockMerchantInboxMessages } from '../../data/mockData';
 
 interface MerchantBottomNavProps {
     user: User;
@@ -13,7 +12,7 @@ const MerchantBottomNav: React.FC<MerchantBottomNavProps> = ({ user }) => {
     const { t } = useTranslation();
     const location = useLocation();
     
-    const unreadCount = mockMerchantInboxMessages.filter(m => !m.isRead).length;
+    const unreadCount = 0;
 
     const primaryNavItems = [
         { path: '/merchant/dashboard', icon: ChartBarIcon, label: t('nav.merchant.dashboard') },

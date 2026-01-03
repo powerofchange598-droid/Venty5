@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Order, OrderStatus } from '../../types';
-import { mockMerchant } from '../../data/mockData';
 import Card from '../../components/Card';
 import MerchantPageLayout from '../../components/merchant/MerchantPageLayout';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -38,8 +37,7 @@ const OrderCard: React.FC<{
     const [trackingInput, setTrackingInput] = useState(order.trackingNumber || '');
 
     const handleChatClick = () => {
-        const chatId = 'chat_user1_merchant1'; // This would be dynamic
-        navigate(`/chat/${chatId}`, { state: { orderId: order.id } });
+        navigate('/messages', { state: { context: 'order', orderId: order.id } });
     };
 
     const handleMarkAsShipped = () => {
@@ -109,7 +107,7 @@ const OrderCard: React.FC<{
 
 const OrderManagementScreen: React.FC<OrderManagementScreenProps> = ({ user }) => {
     const { t } = useTranslation();
-    const [orders, setOrders] = useState<Order[]>(mockMerchant.orders);
+    const [orders, setOrders] = useState<Order[]>([]);
     const [filterStatus, setFilterStatus] = useState<OrderStatus | 'all'>('all');
     const { formatCurrency } = useLocalization();
     const [visibleCount, setVisibleCount] = useState(ORDERS_PER_PAGE);

@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { User, InvestmentOption } from '../types';
-import { mockInvestmentOptions } from '../data/mockData';
 import PageLayout from '../components/PageLayout';
 import Card from '../components/Card';
 import VentyButton from '../components/VentyButton';
@@ -132,13 +131,7 @@ const InvestmentScreen: React.FC<InvestmentScreenProps> = ({ user, isPremiumUser
     const currentColors = themeColors[theme as keyof typeof themeColors];
 
     const filteredOptions = useMemo(() => {
-        return mockInvestmentOptions.filter(opt => {
-            const matchesRisk = riskFilter === 'All' || opt.risk === riskFilter;
-            const matchesSearch = searchTerm === '' ||
-                opt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                opt.ticker.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesRisk && matchesSearch;
-        });
+        return [];
     }, [riskFilter, searchTerm]);
 
     const handleSimulateOption = useCallback((opt: InvestmentOption) => {
@@ -245,7 +238,7 @@ const InvestmentScreen: React.FC<InvestmentScreenProps> = ({ user, isPremiumUser
                     </Card>
 
                     <Card className="lg:col-span-2 !p-6">
-                        <h2 className="text-xl md:text-2xl font-bold font-serif mb-4 text-text-primary">Investment Opportunities ({filteredOptions.length})</h2>
+                        <h2 className="text-xl md:text-2xl font-bold font-serif mb-4 text-text-primary">Investment Opportunities</h2>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                             <div className="relative md:col-span-2">
                                  <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-brand-primary"/>

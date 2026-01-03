@@ -11,8 +11,7 @@ const categoryToProductMap: Record<string, { productCategory?: string; keywords:
 // FIX: Use langCode, countryCode, and currency from the updated User type for proper localization.
 const formatCurrencyForRec = (value: number, user: User) => {
     try {
-        const locale = `${user.langCode}-${user.countryCode}`;
-        return new Intl.NumberFormat(locale, {
+        return new Intl.NumberFormat('en', {
             style: 'currency',
             currency: user.currency,
             minimumFractionDigits: 0,
@@ -20,7 +19,7 @@ const formatCurrencyForRec = (value: number, user: User) => {
         }).format(value);
     } catch {
         // FIX: Use the user's currency code in the fallback.
-        return `${value} ${user.currency}`;
+        return `${Math.round(value).toLocaleString('en-US')} ${user.currency}`;
     }
 };
 

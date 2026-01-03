@@ -8,7 +8,6 @@ import { UsersIcon, UserMinusIcon, DocumentDuplicateIcon, LightBulbIcon, BellAle
 import PageLayout from './PageLayout';
 import { useLocalization } from '../hooks/useLocalization';
 import { generateSmartNotifications } from '../utils/notificationGenerator';
-import { mockTransactions } from '../data/mockData';
 import VerifiedBadge from './VerifiedBadge';
 import { safeFormatDate } from '../utils/dateUtils';
 
@@ -175,8 +174,7 @@ const FamilyScreen: React.FC<FamilyScreenProps> = ({ user, family: initialFamily
     }, [initialFamily]);
 
     const notifications: SmartNotification[] = useMemo(() => {
-        return generateSmartNotifications(user, mockTransactions)
-            .filter(n => n.type === 'goal' || n.type === 'ai_suggestion');
+        return [];
     }, [user]);
 
     const pendingRequestsCount = purchaseRequests.filter(r => r.status === 'pending').length;

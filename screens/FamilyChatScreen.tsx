@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { User, Family, ChatMessage } from '../types';
-import { mockChatMessages } from '../data/mockData';
 import Card from '../components/Card';
 import VentyButton from '../components/VentyButton';
 import { PaperAirplaneIcon } from '@heroicons/react/24/solid';
@@ -16,7 +15,7 @@ interface FamilyChatScreenProps {
 const FamilyChatScreen: React.FC<FamilyChatScreenProps> = ({ user, family }) => {
     const navigate = useNavigate();
     const { t } = useTranslation();
-    const [messages, setMessages] = useState<ChatMessage[]>(mockChatMessages);
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const chatContainerRef = useRef<HTMLDivElement>(null);
 

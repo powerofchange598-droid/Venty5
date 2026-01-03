@@ -1,9 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { User, StoreConfig, Product, Merchant, Section, MerchantAd } from '../types';
-import { mockAllMerchants, mockProducts } from '../data/mockData';
-import { themes } from '../data/merchantThemes';
+import { fetchMerchantBySlug, fetchMerchantProducts } from '../lib/products';
 import ProductCard from '../components/ProductCard';
 import ShareModal from '../components/ShareModal';
 import Card from '../components/Card';
@@ -30,7 +29,7 @@ const StoreHeader: React.FC<{ merchant: Merchant, onSearch: (term: string) => vo
     <header className="sticky top-0 z-20 bg-bg-primary/80 backdrop-blur-sm border-b border-border-primary p-3 space-y-3">
         <div className="flex items-center justify-between gap-4">
             <Link to="/market" className="flex items-center gap-3 flex-shrink-0">
-                <img src={merchant.logoUrl} alt={merchant.storeName} className="w-10 h-10 rounded-full object-contain bg-white" />
+                <img src={merchant.logoUrl || ''} alt={merchant.storeName} className="w-10 h-10 rounded-full object-contain bg-white" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
                 <h1 className="font-bold text-lg truncate flex items-center">
                     {merchant.storeName}
                     {merchant.isVerified && <CheckBadgeIcon className="h-5 w-5 text-text-secondary ml-1" title="Verified Merchant" />}
@@ -117,7 +116,7 @@ const StoreFooter: React.FC<{ merchant: Merchant }> = ({ merchant }) => {
     )
 }
 
-const StoreAdRenderer: React.FC<{ ad: MerchantAd; user: User }> = ({ ad, user }) => {
+const StoreAdRenderer: React.FC<{ ad: MerchantAd; user: User; merchantProducts: Product[] }> = ({ ad, user, merchantProducts }) => {
     switch (ad.adType) {
         case 'video':
             return (
@@ -131,28 +130,32 @@ const StoreAdRenderer: React.FC<{ ad: MerchantAd; user: User }> = ({ ad, user })
         case 'banner':
             return (
                  <div className="w-full my-4">
-                    <Link to={ad.content.link}>
-                        <img src={ad.content.imageUrl} alt={ad.content.caption || 'Advertisement'} className="w-full rounded-lg" />
-                    </Link>
+                    {ad.content.link ? (
+                        <Link to={ad.content.link}>
+                            <img src={ad.content.imageUrl || ''} alt={ad.content.caption || 'Advertisement'} className="w-full rounded-lg" />
+                        </Link>
+                    ) : (
+                        <img src={ad.content.imageUrl || ''} alt={ad.content.caption || 'Advertisement'} className="w-full rounded-lg" />
+                    )}
                 </div>
             );
         case 'carousel':
             return (
                 <div className="w-full my-4 col-span-2 md:col-span-3">
-                    <Card>
+                <Card>
                         <HorizontalScroller>
                              <div className="flex gap-4 p-2">
-                                {ad.content.carouselImages?.map((img, i) => (
-                                    <img key={i} src={img} alt={`Ad slide ${i+1}`} className="w-64 h-40 object-cover rounded-lg snap-center"/>
+                                {(ad.content.carouselImages || []).map((img, i) => (
+                                    <img key={i} src={img || ''} alt={`Ad slide ${i+1}`} className="w-64 h-40 object-cover rounded-lg snap-center"/>
                                 ))}
-                            </div>
-                        </HorizontalScroller>
-                        {ad.content.caption && <p className="font-semibold mt-2 p-2">{ad.content.caption}</p>}
-                    </Card>
+                             </div>
+                     </HorizontalScroller>
+                     {ad.content.caption && <p className="font-semibold mt-2 p-2">{ad.content.caption}</p>}
+                 </Card>
                 </div>
             );
         case 'product':
-            const adProduct = mockProducts.find(p => p.id === ad.content.productId);
+            const adProduct = merchantProducts.find(p => p.id === ad.content.productId);
             if (!adProduct) return null;
             return (
                 <div>
@@ -181,10 +184,33 @@ const MerchantStoreScreen: React.FC<MerchantStoreScreenProps> = ({ user, ads }) 
     const [sortBy, setSortBy] = useState<'recommended' | 'price_asc' | 'price_desc' | 'newest' | 'oldest' | 'discount'>('recommended');
 
     const activeCategory = searchParams.get('category') || 'all';
-    const merchant = mockAllMerchants.find(m => m.slug === merchantSlug);
+    const [merchant, setMerchant] = useState<Merchant | null>(null);
+    const [merchantProducts, setMerchantProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const merchantProducts = useMemo(() => {
-        return mockProducts.filter(p => p.merchantInfo?.slug === merchantSlug);
+    useEffect(() => {
+        if (!merchantSlug) return;
+        let cancelled = false;
+        setLoading(true);
+        setError(null);
+        setMerchant(null);
+        setMerchantProducts([]);
+        Promise.resolve().then(async () => {
+            const m = await fetchMerchantBySlug(merchantSlug);
+            if (cancelled) return;
+            if (!m) {
+                setError('not_found');
+                setLoading(false);
+                return;
+            }
+            setMerchant(m);
+            const p = await fetchMerchantProducts(merchantSlug);
+            if (cancelled) return;
+            setMerchantProducts(Array.isArray(p) ? p : []);
+            setLoading(false);
+        });
+        return () => { cancelled = true; };
     }, [merchantSlug]);
 
     const merchantAds = useMemo(() => {
@@ -197,15 +223,19 @@ const MerchantStoreScreen: React.FC<MerchantStoreScreenProps> = ({ user, ads }) 
     }, [merchantAds]);
 
     const productsWithAds = useMemo(() => {
+        const isActiveStore = !!merchant && merchant.storeStatus !== 'inactive';
         const productAds = merchantAds
             .filter(ad => ad.adType === 'product')
             .map(ad => {
-                const product = mockProducts.find(p => p.id === ad.content.productId);
-                return product ? { ...product, isAd: true } : null;
+                const product = merchantProducts.find(p => p.id === ad.content.productId);
+                if (!product) return null;
+                if (product.status && product.status === 'draft') return null;
+                return { ...product, isAd: true };
             })
             .filter((p): p is Product & { isAd: true } => p !== null);
 
         let regularProducts = merchantProducts
+            .filter(p => !p.status || p.status === 'published')
             .filter(p => p.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
         const min = priceMin ? Number(priceMin) : undefined;
@@ -246,9 +276,10 @@ const MerchantStoreScreen: React.FC<MerchantStoreScreenProps> = ({ user, ads }) 
             });
         }
         
+        if (!isActiveStore) return [];
         return [...productAds, ...regularProducts.filter(p => !productAds.some(ap => ap.id === p.id))];
 
-    }, [merchantAds, merchantProducts, searchTerm, activeCategory, priceMin, priceMax, inStockOnly, sortBy]);
+    }, [merchantAds, merchantProducts, searchTerm, activeCategory, priceMin, priceMax, inStockOnly, sortBy, merchant]);
 
     if (!merchant) {
         return <div className="p-8 text-center">Sorry, we couldn't find this merchant.</div>;
@@ -262,6 +293,37 @@ const MerchantStoreScreen: React.FC<MerchantStoreScreenProps> = ({ user, ads }) 
         }
         setSearchParams(searchParams);
     };
+
+    if (loading) {
+        return (
+            <div className="bg-bg-primary text-text-primary min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-xl font-semibold">Loading store...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="bg-bg-primary text-text-primary min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-xl font-semibold">{error === 'not_found' ? 'Store not found' : 'Unable to load store'}</p>
+                    <p className="opacity-70 mt-2">Please try again later.</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!merchant) {
+        return (
+            <div className="bg-bg-primary text-text-primary min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-xl font-semibold">Store not found</p>
+                </div>
+            </div>
+        );
+    }
 
     const shareUrl = `${window.location.origin}${window.location.pathname}${window.location.hash}`;
     const activeCategoryName = productCategories.find(c => c.id === activeCategory)?.name || 'Store';
@@ -312,7 +374,7 @@ const MerchantStoreScreen: React.FC<MerchantStoreScreenProps> = ({ user, ads }) 
                 {displayAds.length > 0 && (
                     <div className="mb-6 space-y-6">
                         {displayAds.map(ad => (
-                            <StoreAdRenderer key={ad.id} ad={ad} user={user} />
+                            <StoreAdRenderer key={ad.id} ad={ad} user={user} merchantProducts={merchantProducts} />
                         ))}
                     </div>
                 )}

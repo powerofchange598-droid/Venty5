@@ -21,6 +21,7 @@ export const initDb = async () => {
             name TEXT,
             picture TEXT,
             password_hash TEXT,
+            is_verified INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
@@ -47,6 +48,10 @@ export const initDb = async () => {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
         );
     `);
+
+    try {
+        await db.exec('ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0');
+    } catch {}
 
     return db;
 };

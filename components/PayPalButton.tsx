@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { useTheme } from '../hooks/useTheme';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,12 +13,41 @@ interface PayPalButtonProps {
 const PayPalButton: React.FC<PayPalButtonProps> = ({ amount, description, onSuccess, onError }) => {
     const { theme } = useTheme();
     const [error, setError] = useState<string | null>(null);
+    const [disabledMessage, setDisabledMessage] = useState<string | null>(null);
 
     const initialOptions = {
         clientId: (import.meta as any).env.VITE_PAYPAL_CLIENT_ID || "",
         currency: "USD",
         intent: "capture",
     };
+
+    useEffect(() => {
+        if (!initialOptions.clientId) {
+            setDisabledMessage('PayPal is not configured (missing client ID). Please try another payment method.');
+            return;
+        }
+        (async () => {
+            try {
+                const r = await fetch('/api/health');
+                const d = await r.json().catch(() => ({}));
+                if (!d?.hasCredentials) {
+                    setDisabledMessage('PayPal server credentials are missing. Please try another payment method.');
+                }
+            } catch {
+                setDisabledMessage('Payment backend is offline. Please try again later.');
+            }
+        })();
+    }, []);
+
+    if (disabledMessage) {
+        return (
+            <div className="w-full">
+                <div className="bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 p-3 rounded-lg mb-4 text-sm font-medium text-center">
+                    {disabledMessage}
+                </div>
+            </div>
+        );
+    }
 
     const createOrder = async () => {
         try {

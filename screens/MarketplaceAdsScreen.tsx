@@ -183,7 +183,7 @@ const AdCampaignsSection: React.FC<{ ads: MerchantAd[]; onCreateClick: () => voi
             <div className="space-y-3">
                 {ads.map(ad => {
                     const product = ad.adType === 'product' ? mockProducts.find(p => p.id === ad.content.productId) : null;
-                    return <Card key={ad.id} className="!p-3 flex items-center space-x-3 bg-ui-background"><div className="w-16 h-16 bg-ui-border rounded-lg flex-shrink-0"><img src={product?.imageUrl || ad.content.imageUrl || ''} className="w-full h-full object-cover rounded-lg"/></div><div className="flex-grow"><p className="font-bold">{product?.title || ad.content.caption || ad.adType.replace('_', ' ')}</p><p className="text-sm capitalize text-ui-secondary">{ad.adType.replace('_', ' ')}</p></div><div className="text-right"><p className="font-semibold text-feedback-success">Impressions: {ad.impressions.toLocaleString()}</p><p className="text-sm">Clicks: {ad.clicks.toLocaleString()}</p></div></Card>;
+                    return <Card key={ad.id} className="!p-3 flex items-center space-x-3 bg-ui-background"><div className="w-16 h-16 bg-ui-border rounded-lg flex-shrink-0"><img src={product?.imageUrl || ad.content.imageUrl || ''} className="w-full h-full object-cover rounded-lg"/></div><div className="flex-grow"><p className="font-bold">{product?.title || ad.content.caption || ad.adType.replace('_', ' ')}</p><p className="text-sm capitalize text-ui-secondary">{ad.adType.replace('_', ' ')}</p></div><div className="text-right"><p className="font-semibold text-feedback-success">Impressions: {formatNumberEn(ad.impressions)}</p><p className="text-sm">Clicks: {formatNumberEn(ad.clicks)}</p></div></Card>;
                 })}
             </div>
         )}
@@ -191,7 +191,7 @@ const AdCampaignsSection: React.FC<{ ads: MerchantAd[]; onCreateClick: () => voi
 );
 
 const AnalyticsDashboard: React.FC<{ ads: MerchantAd[]; user: User }> = ({ ads, user }) => {
-    const { formatCurrency } = useLocalization();
+    const { formatCurrencyEn, formatNumberEn } = useLocalization();
     const { totalImpressions, totalClicks, totalConversions, totalSpend } = useMemo(() => {
         return ads.reduce((acc, ad) => ({
             totalImpressions: acc.totalImpressions + ad.impressions,
@@ -207,9 +207,9 @@ const AnalyticsDashboard: React.FC<{ ads: MerchantAd[]; user: User }> = ({ ads, 
         <Card>
             <h2 className="text-xl font-bold font-serif mb-4">Analytics Dashboard</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="card-gradient-analytics p-4 rounded-xl"><p className="text-sm opacity-80">Impressions</p><p className="text-3xl font-bold">{totalImpressions.toLocaleString()}</p></div>
-                <div className="card-gradient-analytics p-4 rounded-xl"><p className="text-sm opacity-80">Clicks</p><p className="text-3xl font-bold">{totalClicks.toLocaleString()}</p></div>
-                <div className="card-gradient-analytics p-4 rounded-xl"><p className="text-sm opacity-80">CTR</p><p className="text-3xl font-bold">{ctr.toFixed(2)}%</p></div>
+                <div className="card-gradient-analytics p-4 rounded-xl"><p className="text-sm opacity-80">Impressions</p><p className="text-3xl font-bold">{formatNumberEn(totalImpressions)}</p></div>
+                <div className="card-gradient-analytics p-4 rounded-xl"><p className="text-sm opacity-80">Clicks</p><p className="text-3xl font-bold">{formatNumberEn(totalClicks)}</p></div>
+                <div className="card-gradient-analytics p-4 rounded-xl"><p className="text-sm opacity-80">CTR</p><p className="text-3xl font-bold">{formatNumberEn(Number(ctr.toFixed(2)))}%</p></div>
                 <div className="card-gradient-analytics p-4 rounded-xl"><p className="text-sm opacity-80">Conversions</p><p className="text-3xl font-bold">{totalConversions}</p></div>
             </div>
             <div className="h-72">
@@ -218,7 +218,7 @@ const AnalyticsDashboard: React.FC<{ ads: MerchantAd[]; user: User }> = ({ ads, 
                         <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--ui-border))" />
                         <XAxis dataKey="name" stroke="rgb(var(--ui-secondary))" />
                         <YAxis stroke="rgb(var(--ui-secondary))" />
-                        <RechartsTooltip contentStyle={{ backgroundColor: 'rgb(var(--ui-card))', borderColor: 'rgb(var(--ui-border))' }} />
+                        <RechartsTooltip contentStyle={{ backgroundColor: 'rgb(var(--ui-card))', borderColor: 'rgb(var(--ui-border))' }} formatter={(value: number) => formatNumberEn(value)} />
                         <Legend />
                         <Line type="monotone" dataKey="impressions" stroke="#1E3A8A" strokeWidth={2} activeDot={{ r: 8 }} />
                         <Line type="monotone" dataKey="clicks" stroke="#10B981" strokeWidth={2} />

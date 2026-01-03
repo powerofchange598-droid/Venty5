@@ -19,17 +19,22 @@ export default async function handler(req: any, res: any) {
     if (!isValid) return res.status(401).json({ ok: false, error: 'invalid_login' });
 
     // Create Stateless Session with Profile Data
+    const merchantProfile = user.merchantProfile;
+    const role = merchantProfile ? 'merchant' : 'user';
+
     const sessionPayload = {
         userId: user.userId,
         email: user.email,
         name: user.name,
         picture: user.picture,
-        provider: 'email'
+        provider: 'email',
+        role,
+        merchantProfile
     };
 
     const jwt = await signSession(sessionPayload);
     setSessionCookie(res, jwt);
-    return res.json({ ok: true, user: sessionPayload });
+    return res.json({ ok: true, user: sessionPayload, token: jwt, userId: user.userId, role });
   } catch (e: any) {
     console.error('Login Error:', e);
     return res.status(500).json({ ok: false, error: e?.message || 'server_error' });

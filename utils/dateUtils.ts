@@ -34,7 +34,7 @@ export const safeFormatDate = (
     if (!d) {
         return fallback;
     }
-    return d.toLocaleDateString(locales, options);
+    return d.toLocaleDateString(locales || 'en-US', options);
 };
 
 /**
@@ -55,7 +55,7 @@ export const safeFormatDateTime = (
     if (!d) {
         return fallback;
     }
-    return d.toLocaleString(locales, options);
+    return d.toLocaleString(locales || 'en-US', options);
 };
 
 /**

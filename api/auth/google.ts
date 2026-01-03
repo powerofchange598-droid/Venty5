@@ -143,24 +143,30 @@ export default async function handler(req: any, res: any) {
             };
             
             let userId = sub;
+            let merchantProfile: any = undefined;
             try {
                 const user = await upsertUserFromIdentity(identity);
                 userId = user.userId;
+                merchantProfile = user.merchantProfile;
             } catch (e) {
                 // Ignore persistence error
             }
+
+            const role = merchantProfile ? 'merchant' : 'user';
 
             const sessionPayload = {
                 userId: userId,
                 email: email,
                 name: name,
                 picture: picture,
-                provider: 'google'
+                provider: 'google',
+                role,
+                merchantProfile
             };
 
             const jwt = await signSession(sessionPayload);
             setSessionCookie(res, jwt);
-            return res.json({ ok: true, user: sessionPayload });
+            return res.json({ ok: true, user: sessionPayload, token: jwt, userId, role });
 
         } catch (err: any) {
             console.error('ID Token Verification Failed:', err);

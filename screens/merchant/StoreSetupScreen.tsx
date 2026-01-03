@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, StoreConfig, Product } from '../../types';
 import { useToast } from '../../hooks/useToast';
@@ -11,6 +11,9 @@ import ImageUpload from '../../components/ImageUpload';
 import StorePreview from '../../components/merchant/setup/StorePreview';
 import EditorAccordion from '../../components/merchant/setup/EditorAccordion';
 import { ComputerDesktopIcon, DevicePhoneMobileIcon } from '@heroicons/react/24/solid';
+import { api } from '../../lib/api';
+
+import { useAuth } from '../../hooks/useAuth';
 
 // --- PROPS ---
 interface StoreSetupScreenProps {
@@ -34,8 +37,16 @@ const StoreInfoEditor: React.FC<{
         <div>
             <label className="font-medium text-sm block mb-2">Store Logo</label>
             <ImageUpload 
-                onFileSelect={(file) => file && onLogoChange(URL.createObjectURL(file))} 
-                currentImageUrl={(branding as any).logoUrl} // Assuming logoUrl is part of branding
+                onFileSelect={(file) => {
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+                        if (dataUrl) onLogoChange(dataUrl);
+                    };
+                    reader.readAsDataURL(file);
+                }} 
+                currentImageUrl={(branding as any).logoUrl}
             />
         </div>
     </div>
@@ -123,6 +134,7 @@ const LayoutEditor: React.FC<{
 
 const StoreSetupScreen: React.FC<StoreSetupScreenProps> = ({ user, onSave }) => {
     const { showToast } = useToast();
+    const { refreshSession, updateUser } = useAuth();
     type OpenAccordion = 'info' | 'hero' | 'theme' | 'layout' | null;
     const [openAccordion, setOpenAccordion] = useState<OpenAccordion>('info');
     
@@ -131,12 +143,22 @@ const StoreSetupScreen: React.FC<StoreSetupScreenProps> = ({ user, onSave }) => 
 
     const initialStoreConfig = useMemo(() => {
         const defaultTheme = themes.find(t => t.id === 'dark')!;
+        const lsKey = `ventyStoreConfig_${user.id}`;
+        let localConfig: StoreConfig | null = null;
+        try {
+            const raw = localStorage.getItem(lsKey);
+            if (raw) localConfig = JSON.parse(raw);
+        } catch {}
+        if (localConfig) return { ...defaultTheme.config, ...localConfig };
         return user.merchantProfile?.storeConfig 
             ? { ...defaultTheme.config, ...user.merchantProfile.storeConfig }
             : defaultTheme.config;
     }, [user.merchantProfile]);
 
     const [config, setConfig] = useState<StoreConfig>(initialStoreConfig);
+    useEffect(() => {
+        setConfig(initialStoreConfig);
+    }, [initialStoreConfig]);
     
     const handleConfigChange = useCallback(<K extends keyof StoreConfig>(key: K, value: StoreConfig[K]) => {
         setConfig(prev => ({ ...prev, [key]: value }));
@@ -154,9 +176,32 @@ const StoreSetupScreen: React.FC<StoreSetupScreenProps> = ({ user, onSave }) => 
         handleConfigChange('layout', { ...config.layout, [key]: value });
     }, [config.layout, handleConfigChange]);
     
-    const handleSave = () => {
-        onSave(config);
-        showToast("Store design saved successfully!", 'success');
+    const handleSave = async () => {
+        let slug = user.merchantProfile?.slug;
+        if (!slug && user.email) {
+            slug = user.email.replace(/[^a-z0-9]/gi, '-');
+        }
+        if (!slug) {
+            showToast("Missing merchant slug", 'error');
+            return;
+        }
+        const res = await api.updateMerchant(slug, { 
+            storeConfig: config, 
+            storeStatus: 'active',
+            storeName: config.branding.storeName,
+            logoUrl: (config.branding as any).logoUrl,
+            ownerId: user.id,
+            email: user.email
+        });
+        if (res.ok) {
+            onSave(config);
+            updateUser({ merchantProfile: { ...(user.merchantProfile || {}), slug, storeConfig: config } as any });
+            await refreshSession();
+            try { localStorage.setItem(`ventyStoreConfig_${user.id}`, JSON.stringify(config)); } catch {}
+            showToast("Store design saved successfully!", 'success');
+        } else {
+            showToast("Failed to save store settings", 'error');
+        }
     };
     
     return (

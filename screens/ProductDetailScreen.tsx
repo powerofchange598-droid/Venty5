@@ -172,7 +172,7 @@ const ProductDetailScreen: React.FC<{ user: User }> = ({ user }) => {
     
     const pageRightAccessory = (
         <button onClick={() => setIsShareModalOpen(true)} className="p-2 rounded-full hover:bg-bg-tertiary">
-            <ShareIcon className="h-6 w-6 text-brand-primary" />
+            <ShareIcon className="h-6 w-6 text-text-primary" />
         </button>
     );
     

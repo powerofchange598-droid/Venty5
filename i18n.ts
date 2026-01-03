@@ -1,49 +1,41 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import HttpBackend from 'i18next-http-backend';
-import { COUNTRY_TO_LANG } from './data/LangTop100.ts';
 
-function detectInitialLanguage(): string {
+const savedLang = (() => {
   try {
-    const saved = localStorage.getItem('ventyLang');
-    if (saved && typeof saved === 'string') return saved;
-    const country = localStorage.getItem('ventyCountry');
-    const fromCountry = country && COUNTRY_TO_LANG[country]?.code;
-    if (fromCountry) return fromCountry;
-    const browser = (navigator?.language || 'en').split('-')[0];
-    return browser || 'en';
+    return localStorage.getItem('ventyLang') || '';
   } catch {
-    return 'en';
+    return '';
   }
-}
-
-const initialLang = detectInitialLanguage();
+})();
+const navigatorLang = typeof navigator !== 'undefined' ? (navigator.language || 'en').split('-')[0] : 'en';
+const initialLng = savedLang || navigatorLang || 'en';
 
 i18n
   .use(HttpBackend)
   .use(initReactI18next)
   .init({
-    lng: initialLang,
+    lng: initialLng,
     fallbackLng: 'en',
-    interpolation:
-    {
-      escapeValue: false,
-    },
-    backend:
-    {
+    backend: {
       loadPath: '/locales/{{lng}}/translation.json',
+    },
+    interpolation: { escapeValue: false },
+    returnEmptyString: false,
+    returnNull: false,
+    parseMissingKeyHandler: (key) => {
+      const parts = String(key).split('.');
+      return parts[parts.length - 1] || key;
     },
   });
 
-const rtlLangs = new Set<string>(['ar', 'fa', 'ur', 'he']);
-
-i18n.on('languageChanged', (lng) => {
-  const isRtl = rtlLangs.has(lng);
-  if (typeof document !== 'undefined') {
-    document.documentElement.setAttribute('dir', isRtl ? 'rtl' : 'ltr');
-    document.documentElement.setAttribute('lang', lng);
-    try { localStorage.setItem('ventyLang', lng); } catch {}
-  }
-});
+if (typeof document !== 'undefined') {
+  const lang = i18n.language || 'en';
+  const dir = ['ar', 'fa', 'ur', 'he'].includes(lang) ? 'rtl' : 'ltr';
+  document.documentElement.setAttribute('dir', dir);
+  document.documentElement.setAttribute('lang', lang);
+  try { localStorage.setItem('ventyLang', lang); } catch {}
+}
 
 export default i18n;

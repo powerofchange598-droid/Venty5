@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useMotionValue, animate } from 'framer-motion';
 import { User, InboxMessage } from '../types';
-import { mockInboxMessages, mockMerchantInboxMessages } from '../data/mockData';
 import PageLayout from '../components/PageLayout';
 import { ChatBubbleLeftRightIcon, ShoppingBagIcon, SparklesIcon, ShieldCheckIcon, ArchiveBoxIcon, TrashIcon } from '@heroicons/react/24/solid';
 import HorizontalScroller from '../components/HorizontalScroller';
@@ -17,9 +16,9 @@ interface MessagesScreenProps {
 const MessageTypeIcon: React.FC<{ type: InboxMessage['type'] }> = ({ type }) => {
     const icons = {
         chat: <ChatBubbleLeftRightIcon className="h-6 w-6 text-brand-primary" />,
-        order: <ShoppingBagIcon className="h-6 w-6 text-purple-500" />,
-        promo: <SparklesIcon className="h-6 w-6 text-amber-500" />,
-        system: <ShieldCheckIcon className="h-6 w-6 text-red-500" />,
+        order: <ShoppingBagIcon className="h-6 w-6 text-text-primary" />,
+        promo: <SparklesIcon className="h-6 w-6 text-feedback-warning" />,
+        system: <ShieldCheckIcon className="h-6 w-6 text-feedback-error" />,
     };
     return <div className="w-12 h-12 rounded-full flex items-center justify-center bg-bg-secondary flex-shrink-0">{icons[type]}</div>;
 };
@@ -100,10 +99,7 @@ const MessageItem: React.FC<{
 };
 
 const MessagesScreen: React.FC<MessagesScreenProps> = ({ currentUser }) => {
-    const isMerchant = currentUser.accountType === 'merchant';
-    const initialMessages = useMemo(() => isMerchant ? mockMerchantInboxMessages : mockInboxMessages, [isMerchant]);
-    
-    const [messages, setMessages] = useState<InboxMessage[]>(initialMessages);
+    const [messages, setMessages] = useState<InboxMessage[]>([]);
     const [activeFilter, setActiveFilter] = useState<MessageFilter>('all');
     const navigate = useNavigate();
 

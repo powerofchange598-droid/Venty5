@@ -4,11 +4,11 @@ import { safeDate } from './dateUtils';
 // Helper to format currency consistently within tips
 const formatCurrencyForTip = (value: number, currency: string, langCode: string) => {
     try {
-        return new Intl.NumberFormat(langCode, {
+        return new Intl.NumberFormat('en', {
             style: 'currency', currency: currency, minimumFractionDigits: 0, maximumFractionDigits: 0,
         }).format(value);
     } catch {
-        return `${value} ${currency}`;
+        return `${Math.round(value).toLocaleString('en-US')} ${currency}`;
     }
 }
 

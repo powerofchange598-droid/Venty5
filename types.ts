@@ -124,6 +124,7 @@ export interface Product {
     title: string;
     price: number;
     originalPrice?: number;
+    status?: 'published' | 'draft';
     createdAt: string; // ISO String
     merchant: string;
     imageUrl: string;
@@ -208,6 +209,7 @@ export interface Merchant {
     userId: string;
     storeName: string;
     businessType: string;
+    storeStatus?: 'active' | 'inactive';
     products: Product[];
     orders: Order[];
     slug: string;
@@ -344,6 +346,7 @@ export interface Transaction {
   amount: number; // positive for income, negative for expense
   date: string; // ISO string
   category: string;
+  categoryId?: string;
   icon: string;
   type: 'income' | 'expense' | 'subscription' | 'transfer';
 }
@@ -528,9 +531,20 @@ export interface SimulationResult {
 // --- Quick Actions ---
 export interface ExpenseData {
     amount: number;
-    category: string;
+    categoryId?: string;
+    category?: string;
     date: string;
     notes: string;
+    expType: 'fixed' | 'variable';
+}
+
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  icon?: string;
+  color?: string;
+  user_id: string;
+  is_default: boolean;
 }
 
 export interface IncomeData {
@@ -538,6 +552,7 @@ export interface IncomeData {
     source: string;
     date: string;
     notes: string;
+    recurring: boolean;
 }
 
 // --- Exchange Market ---

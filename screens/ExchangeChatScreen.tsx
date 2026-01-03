@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { User, ExchangeChat, ExchangeChatMessage, Product } from '../types';
-import { mockExchangeChats, mockExchangeChatMessages, mockOtherUser, mockProducts, mockUser } from '../data/mockData';
 import PageLayout from '../components/PageLayout';
 import { PaperAirplaneIcon, CheckCircleIcon, ShieldCheckIcon, EllipsisVerticalIcon, FlagIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { applyChatFilters, detectOffPlatformAttempt } from '../utils/chatHelper';
@@ -32,22 +31,8 @@ const ExchangeChatScreen: React.FC<ExchangeChatScreenProps> = ({ currentUser }) 
     const VIOLATION_KEY = `chat_violations_${currentUser.id}`;
 
 
-    // --- Effects to load mock data based on route ---
-    useEffect(() => {
-        const foundChat = mockExchangeChats.find(c => c.id === chatId);
-        if (foundChat) {
-            setChat(foundChat);
-            const foundItem = mockProducts.find(p => p.id === foundChat.itemId);
-            setItem(foundItem || null);
+    // No mock data; waiting for real chat data source
 
-            const otherUserId = foundChat.memberIds.find(id => id !== currentUser.id);
-            const foundOtherUser = [mockUser, mockOtherUser].find(u => u.id === otherUserId);
-            setOtherUser(foundOtherUser || null);
-
-            setMessages(mockExchangeChatMessages.filter(m => m.chatId === chatId));
-        }
-    }, [chatId, currentUser.id]);
-    
     useEffect(() => {
         const violations = parseInt(localStorage.getItem(VIOLATION_KEY) || '0', 10);
         if (violations > 1) {
@@ -64,7 +49,7 @@ const ExchangeChatScreen: React.FC<ExchangeChatScreenProps> = ({ currentUser }) 
     const handleSendMessage = (e: React.FormEvent) => {
         e.preventDefault();
         const textRaw = newMessage.trim();
-        if (!textRaw || isChatDisabled) return;
+        if (!textRaw || isChatDisabled || !chat) return;
 
         const securityCheck = detectOffPlatformAttempt(textRaw);
         if (securityCheck.blocked) {
@@ -86,7 +71,7 @@ const ExchangeChatScreen: React.FC<ExchangeChatScreenProps> = ({ currentUser }) 
 
         const newMsg: ExchangeChatMessage = {
             id: `bmsg${messages.length + 1}`,
-            chatId: chat!.id,
+            chatId: chat?.id || chatId || 'unknown',
             senderId: currentUser.id,
             senderName: currentUser.name,
             textRaw: textRaw,
@@ -124,7 +109,7 @@ const ExchangeChatScreen: React.FC<ExchangeChatScreenProps> = ({ currentUser }) 
     };
 
     if (!chat || !item || !otherUser) {
-        return <PageLayout title="Loading Chat..."><div className="text-center p-8">Loading...</div></PageLayout>;
+        return <PageLayout title="Exchange Chat"><div className="text-center p-8 text-text-secondary">No chat data available.</div></PageLayout>;
     }
     
     const isDealAgreed = chat.status === 'agreed';
@@ -208,8 +193,8 @@ const ExchangeChatScreen: React.FC<ExchangeChatScreenProps> = ({ currentUser }) 
                     <div className="p-4 border-t border-bg-tertiary animate-fadeIn">
                         <h3 className="font-bold mb-2">Shared Contact Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <Card className="!p-3"><p className="font-semibold">{currentUser.name}</p><p>{currentUser.contactInfo.phone}</p><p>{currentUser.contactInfo.address}</p></Card>
-                            <Card className="!p-3"><p className="font-semibold">{otherUser.name}</p><p>{otherUser.contactInfo.phone}</p><p>{otherUser.contactInfo.address}</p></Card>
+                            <Card className="!p-3"><p className="font-semibold">{currentUser.name}</p><p>{currentUser.contactInfo?.phone || ''}</p><p>{currentUser.contactInfo?.address || ''}</p></Card>
+                            <Card className="!p-3"><p className="font-semibold">{otherUser.name}</p><p>{otherUser.contactInfo?.phone || ''}</p><p>{otherUser.contactInfo?.address || ''}</p></Card>
                         </div>
                     </div>
                 )}

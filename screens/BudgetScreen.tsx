@@ -1,11 +1,12 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { BudgetCategory, User, FixedExpense, Goal } from '../types';
 import { useLocalization } from '../hooks/useLocalization';
 import PageLayout from '../components/PageLayout';
 import Card from '../components/Card';
 import { LeftToSpendChart, CashFlowChart, AllocationChart } from '../components/Budget/BudgetCharts';
 import { PlusIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { TEXT } from '../constants/text';
 
 // --- TYPES ---
 interface BudgetScreenProps {
@@ -15,31 +16,41 @@ interface BudgetScreenProps {
     fixedExpenses: FixedExpense[];
     totalIncomeForBudget: number;
     goals?: Goal[];
+    transactions?: any[];
 }
 
 // --- SUB-COMPONENTS ---
 
 const DateSelectorCard: React.FC = () => {
-    const currentDate = new Date();
-    const currentMonth = currentDate.toLocaleString('default', { month: 'long' }).toUpperCase();
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const currentMonth = currentDate.toLocaleString('en', { month: 'long' }).toUpperCase();
     const currentYear = currentDate.getFullYear();
+    const lastDayOfMonth = new Date(currentYear, currentDate.getMonth() + 1, 0).getDate();
+
+    useEffect(() => {
+        const now = new Date();
+        const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+        const msUntilNextDay = nextMidnight.getTime() - now.getTime();
+        const timer = setTimeout(() => setCurrentDate(new Date()), msUntilNextDay);
+        return () => clearTimeout(timer);
+    }, [currentDate]);
 
     return (
         <Card className="flex flex-col justify-center items-center h-full !p-6 bg-bg-secondary border-t-4 border-brand-primary shadow-sm min-h-[280px]">
             <h1 className="text-4xl font-bold text-brand-primary tracking-tight">{currentMonth}</h1>
-            <p className="text-[10px] font-bold text-text-secondary uppercase tracking-[0.3em] mb-8 mt-2">BUDGET DASHBOARD</p>
+            <p className="text-[10px] font-bold text-text-secondary uppercase tracking-[0.3em] mb-8 mt-2">{TEXT.Budget.monthHeader}</p>
             
             <div className="w-full space-y-3">
                 <div className="flex justify-between items-center w-full">
-                    <span className="text-[10px] font-bold text-text-tertiary uppercase">START DATE</span>
+                    <span className="text-[10px] font-bold text-text-tertiary uppercase">{TEXT.Budget.startDate}</span>
                     <div className="bg-text-primary text-bg-primary px-4 py-2 rounded-lg text-xs font-medium w-32 text-center">
                         {new Intl.NumberFormat('en').format(1)} {currentDate.toLocaleString('en', { month: 'short' })} {new Intl.NumberFormat('en').format(currentYear)}
                     </div>
                 </div>
                 <div className="flex justify-between items-center w-full">
-                    <span className="text-[10px] font-bold text-text-tertiary uppercase">END DATE</span>
+                    <span className="text-[10px] font-bold text-text-tertiary uppercase">{TEXT.Budget.endDate}</span>
                     <div className="bg-text-primary text-bg-primary px-4 py-2 rounded-lg text-xs font-medium w-32 text-center">
-                        {new Intl.NumberFormat('en').format(30)} {currentDate.toLocaleString('en', { month: 'short' })} {new Intl.NumberFormat('en').format(currentYear)}
+                        {new Intl.NumberFormat('en').format(lastDayOfMonth)} {currentDate.toLocaleString('en', { month: 'short' })} {new Intl.NumberFormat('en').format(currentYear)}
                     </div>
                 </div>
             </div>
@@ -60,6 +71,7 @@ interface TableRowProps {
 }
 
 const TableRow: React.FC<TableRowProps> = ({ label, budget, actual, isTotal, hasCheckbox, formatCurrency, editable, onChange, onDelete }) => {
+    const { toEnglishDigits } = useLocalization();
     const [localLabel, setLocalLabel] = useState(label);
     const [localBudget, setLocalBudget] = useState(budget);
     const [localActual, setLocalActual] = useState(actual);
@@ -90,7 +102,7 @@ const TableRow: React.FC<TableRowProps> = ({ label, budget, actual, isTotal, has
                     <input
                         type="number"
                         value={localBudget}
-                        onChange={(e) => setLocalBudget(Number(e.target.value))}
+                        onChange={(e) => setLocalBudget(Number(toEnglishDigits(e.target.value)))}
                         onBlur={commit}
                         className="w-full text-right bg-transparent border-b border-border-primary focus:outline-none"
                     />
@@ -104,7 +116,7 @@ const TableRow: React.FC<TableRowProps> = ({ label, budget, actual, isTotal, has
                         <input
                             type="number"
                             value={localActual}
-                            onChange={(e) => setLocalActual(Number(e.target.value))}
+                            onChange={(e) => setLocalActual(Number(toEnglishDigits(e.target.value)))}
                             onBlur={commit}
                             className="w-full text-right bg-transparent border-b border-border-primary focus:outline-none"
                         />
@@ -163,8 +175,17 @@ const TrackerCard: React.FC<{
 
 // --- MAIN SCREEN ---
 
-const BudgetScreen: React.FC<BudgetScreenProps> = ({ user, initialBudget, fixedExpenses, totalIncomeForBudget, goals }) => {
+const BudgetScreen: React.FC<BudgetScreenProps> = ({ user, initialBudget, fixedExpenses, totalIncomeForBudget, goals, transactions = [] }) => {
     const { formatCurrencyEn: formatCurrency, formatNumberEn } = useLocalization();
+    const [dateTick, setDateTick] = useState(0);
+    useEffect(() => {
+        const now = new Date();
+        const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+        const msUntilNextDay = nextMidnight.getTime() - now.getTime();
+        const timer = setTimeout(() => setDateTick(v => v + 1), msUntilNextDay);
+        return () => clearTimeout(timer);
+    }, [dateTick]);
+    const monthPrefix = useMemo(() => new Date().toISOString().slice(0, 7), [dateTick]);
 
     const [incomeRows, setIncomeRows] = useState(() => [
         { id: `inc_1`, label: 'Paycheck 1', budget: user.salary * 0.5, actual: user.salary * 0.5 },
@@ -181,14 +202,32 @@ const BudgetScreen: React.FC<BudgetScreenProps> = ({ user, initialBudget, fixedE
     ]);
 
     // --- DATA AGGREGATION ---
-    const totalIncome = user.salary;
-    const incomeActual = incomeRows.reduce((sum, r) => sum + (r.actual || 0), 0);
+    const totalIncome = useMemo(() => {
+        const incomeTx = transactions.filter(t => t.amount > 0 && (t.date || '').startsWith(monthPrefix));
+        return incomeTx.reduce((sum, t) => sum + t.amount, 0);
+    }, [transactions, monthPrefix]);
+    const incomeActual = totalIncome;
 
     const billsBudget = billRows.reduce((sum, item) => sum + item.budget, 0);
     const billsActual = billRows.reduce((sum, item) => sum + item.actual, 0);
 
     const expensesBudget = expenseRows.reduce((sum, item) => sum + ((totalIncomeForBudget * item.allocated) / 100), 0);
-    const expensesActual = expenseRows.reduce((sum, item) => sum + item.spent, 0);
+    const categorySpentMap = useMemo(() => {
+        const map: Record<string, number> = {};
+        for (const t of transactions as { type: string; amount: number; date: string; category?: string }[]) {
+            if (t && t.type === 'expense' && (t.date || '').startsWith(monthPrefix)) {
+                const key = String(t.category || '').trim();
+                const amt = Math.abs(Number(t.amount || 0));
+                if (!key) continue;
+                map[key] = (map[key] || 0) + (Number.isFinite(amt) ? amt : 0);
+            }
+        }
+        return map;
+    }, [transactions, monthPrefix]);
+
+    const expensesActual = useMemo(() => {
+        return expenseRows.reduce((sum, item) => sum + (categorySpentMap[item.label] || 0), 0);
+    }, [expenseRows, categorySpentMap]);
 
     const savingsBudget = goalRows.reduce((sum, g) => sum + (g.budget || 0), 0);
     const savingsActual = goalRows.reduce((sum, g) => sum + (g.actual || 0), 0);
@@ -203,13 +242,13 @@ const BudgetScreen: React.FC<BudgetScreenProps> = ({ user, initialBudget, fixedE
     const leftActual = incomeActual - totalActualOut;
 
     return (
-        <PageLayout title="Budget Dashboard" showHeader={false}>
+        <PageLayout title={TEXT.Budget.title} showHeader={false}>
             <div className="bg-bg-primary min-h-screen p-4 lg:p-8 space-y-6">
                 
                 {/* --- TOP ROW: HEADERS & CHARTS --- */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                     <DateSelectorCard />
-<LeftToSpendChart left={leftActual} spent={totalActualOut} currency="$" />
+                    <LeftToSpendChart left={leftActual} spent={totalActualOut} currency="$" />
                     <CashFlowChart income={totalIncome} out={totalActualOut} />
                     <AllocationChart bills={billsActual} expenses={expensesActual} savings={savingsActual} debt={debtActual} />
                 </div>
@@ -219,17 +258,17 @@ const BudgetScreen: React.FC<BudgetScreenProps> = ({ user, initialBudget, fixedE
                     
                     {/* COLUMN 1: CASH FLOW & INCOME */}
                     <div className="space-y-6">
-                        <TrackerCard title="CASH FLOW SUMMARY" formatCurrency={formatCurrency}>
-                            <TableRow label="Rollover" budget={0} actual={0} formatCurrency={formatCurrency} />
-                            <TableRow label="Income" budget={totalIncome} actual={incomeActual} formatCurrency={formatCurrency} />
-                            <TableRow label="Bills" budget={billsBudget} actual={billsActual} formatCurrency={formatCurrency} />
-                            <TableRow label="Expenses" budget={expensesBudget} actual={expensesActual} formatCurrency={formatCurrency} />
-                            <TableRow label="Savings" budget={savingsBudget} actual={savingsActual} formatCurrency={formatCurrency} />
-                            <TableRow label="Debt" budget={debtBudget} actual={debtActual} formatCurrency={formatCurrency} />
-                            <TableRow label="LEFT" budget={leftBudget} actual={leftActual} isTotal formatCurrency={formatCurrency} />
+                        <TrackerCard title={TEXT.Budget.cashFlowSummary} formatCurrency={formatCurrency}>
+                            <TableRow label={TEXT.Budget.rollover} budget={0} actual={0} formatCurrency={formatCurrency} />
+                            <TableRow label={TEXT.Budget.income} budget={totalIncome} actual={incomeActual} formatCurrency={formatCurrency} />
+                            <TableRow label={TEXT.Budget.bills} budget={billsBudget} actual={billsActual} formatCurrency={formatCurrency} />
+                            <TableRow label={TEXT.Budget.expenses} budget={expensesBudget} actual={expensesActual} formatCurrency={formatCurrency} />
+                            <TableRow label={TEXT.Budget.savings} budget={savingsBudget} actual={savingsActual} formatCurrency={formatCurrency} />
+                            <TableRow label={TEXT.Budget.debt} budget={debtBudget} actual={debtActual} formatCurrency={formatCurrency} />
+                            <TableRow label={TEXT.Budget.left} budget={leftBudget} actual={leftActual} isTotal formatCurrency={formatCurrency} />
                         </TrackerCard>
 
-                        <TrackerCard title="INCOME SUMMARY" onAdd={() => {
+                        <TrackerCard title={TEXT.Budget.incomeSummary} onAdd={() => {
                             setIncomeRows(prev => [...prev, { id: `inc_${Date.now()}`, label: `Income ${prev.length + 1}`, budget: 0, actual: 0 }]);
                         }} formatCurrency={formatCurrency} totalBudget={incomeRows.reduce((s,r)=>s+r.budget,0)} totalActual={incomeRows.reduce((s,r)=>s+r.actual,0)}>
                             {incomeRows.map(r => (
@@ -248,8 +287,8 @@ const BudgetScreen: React.FC<BudgetScreenProps> = ({ user, initialBudget, fixedE
                     </div>
 
                     {/* COLUMN 2: BILLS */}
-                    <TrackerCard title="BILL TRACKER" onAdd={() => {
-                        setBillRows(prev => [...prev, { id: `bill_${Date.now()}`, label: 'New Bill', budget: 0, actual: 0 }]);
+                    <TrackerCard title={TEXT.Budget.billTracker} onAdd={() => {
+                        setBillRows(prev => [...prev, { id: `bill_${Date.now()}`, label: TEXT.Budget.newBill, budget: 0, actual: 0 }]);
                     }} formatCurrency={formatCurrency}>
                         {billRows.map(item => (
                             <TableRow
@@ -264,12 +303,12 @@ const BudgetScreen: React.FC<BudgetScreenProps> = ({ user, initialBudget, fixedE
                                 onDelete={() => setBillRows(prev => prev.filter(x => x.id !== item.id))}
                             />
                         ))}
-                        {billRows.length === 0 && <p className="text-xs text-text-tertiary text-center py-4">No bills added.</p>}
+                        {billRows.length === 0 && <p className="text-xs text-text-tertiary text-center py-4">{TEXT.Budget.noBills}</p>}
                     </TrackerCard>
 
                     {/* COLUMN 3: EXPENSES */}
-                    <TrackerCard title="EXPENSE SUMMARY" onAdd={() => {
-                        setExpenseRows(prev => [...prev, { id: `cat_${Date.now()}`, label: 'New Category', allocated: 0, spent: 0 }]);
+                    <TrackerCard title={TEXT.Budget.expenseSummary} onAdd={() => {
+                        setExpenseRows(prev => [...prev, { id: `cat_${Date.now()}`, label: TEXT.Budget.newCategory, allocated: 0, spent: 0 }]);
                     }} formatCurrency={formatCurrency} totalBudget={expensesBudget} totalActual={expensesActual}>
                         {expenseRows.map(cat => (
                             <div key={cat.id} className="grid grid-cols-12 gap-2 py-3 px-2 border-b border-border-primary items-center hover:bg-bg-tertiary">
@@ -286,19 +325,14 @@ const BudgetScreen: React.FC<BudgetScreenProps> = ({ user, initialBudget, fixedE
                                         <input
                                             type="number"
                                             value={cat.allocated}
-                                            onChange={(e) => setExpenseRows(prev => prev.map(x => x.id === cat.id ? { ...x, allocated: Number(e.target.value) } : x))}
+                                            onChange={(e) => setExpenseRows(prev => prev.map(x => x.id === cat.id ? { ...x, allocated: Number(toEnglishDigits(e.target.value)) } : x))}
                                             className="w-16 text-right bg-transparent border-b border-border-primary focus:outline-none"
                                         />
                                     </div>
                                 </div>
                                 <div className="col-span-3 text-right text-xs sm:text-sm text-text-primary">
                                     <div className="flex items-center justify-end gap-2">
-                                        <input
-                                            type="number"
-                                            value={cat.spent}
-                                            onChange={(e) => setExpenseRows(prev => prev.map(x => x.id === cat.id ? { ...x, spent: Number(e.target.value) } : x))}
-                                            className="w-full text-right bg-transparent border-b border-border-primary focus:outline-none"
-                                        />
+                                        <span className="w-full text-right">{formatCurrency(categorySpentMap[cat.label] || 0)}</span>
                                         <button onClick={() => setExpenseRows(prev => prev.filter(x => x.id !== cat.id))} className="text-feedback-error" title="Delete"><TrashIcon className="h-4 w-4" /></button>
                                     </div>
                                 </div>
@@ -308,8 +342,8 @@ const BudgetScreen: React.FC<BudgetScreenProps> = ({ user, initialBudget, fixedE
 
                     {/* COLUMN 4: SAVINGS & DEBT */}
                     <div className="space-y-6">
-                        <TrackerCard title="SAVINGS TRACKER" onAdd={() => {
-                            setGoalRows(prev => [...prev, { id: `goal_${Date.now()}`, label: 'New Goal', budget: 0, actual: 0 }]);
+                        <TrackerCard title={TEXT.Budget.savingsTracker} onAdd={() => {
+                            setGoalRows(prev => [...prev, { id: `goal_${Date.now()}`, label: TEXT.Budget.newGoal, budget: 0, actual: 0 }]);
                         }} formatCurrency={formatCurrency} totalBudget={savingsBudget} totalActual={savingsActual}>
                             {goalRows.map(g => (
                                 <TableRow
@@ -323,11 +357,11 @@ const BudgetScreen: React.FC<BudgetScreenProps> = ({ user, initialBudget, fixedE
                                     onDelete={() => setGoalRows(prev => prev.filter(x => x.id !== g.id))}
                                 />
                             ))}
-                            {goalRows.length === 0 && <p className="text-xs text-text-tertiary text-center py-4">No savings goals.</p>}
+                            {goalRows.length === 0 && <p className="text-xs text-text-tertiary text-center py-4">{TEXT.Budget.noSavings}</p>}
                         </TrackerCard>
 
-                        <TrackerCard title="DEBT TRACKER" onAdd={() => {
-                            setDebtRows(prev => [...prev, { id: `debt_${Date.now()}`, label: 'New Debt', budget: 0, actual: 0 }]);
+                        <TrackerCard title={TEXT.Budget.debtTracker} onAdd={() => {
+                            setDebtRows(prev => [...prev, { id: `debt_${Date.now()}`, label: TEXT.Budget.newDebt, budget: 0, actual: 0 }]);
                         }} formatCurrency={formatCurrency} totalBudget={debtBudget} totalActual={debtActual}>
                             {debtRows.map((d) => (
                                 <TableRow

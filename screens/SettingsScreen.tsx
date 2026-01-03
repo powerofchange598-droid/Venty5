@@ -36,6 +36,7 @@ interface SettingsScreenProps {
     isPremiumUser: boolean;
     onSwitchUser: () => void;
     onLogout: () => void;
+    onDeleteAccount: () => void;
     onUpgrade: () => void;
 }
 
@@ -116,7 +117,12 @@ const EditProfileModal: React.FC<{ user: User; setUser: (u: User) => void; onClo
             <motion.div className="bg-bg-secondary rounded-xl shadow-lg w-full max-w-md p-6" variants={modalVariants as any} onClick={e => e.stopPropagation()}>
                  <h2 className="text-xl font-bold mb-4 text-text-primary">{t('settings.labels.editProfile')}</h2>
                  <div className="space-y-4">
-                     <ImageUpload onFileSelect={(file) => file && setProfilePictureUrl(URL.createObjectURL(file))} currentImageUrl={profilePictureUrl} />
+                     <ImageUpload onFileSelect={(file) => {
+                         if (!file) return;
+                         const reader = new FileReader();
+                         reader.onload = () => setProfilePictureUrl(typeof reader.result === 'string' ? reader.result : '');
+                         reader.readAsDataURL(file);
+                     }} currentImageUrl={profilePictureUrl} />
                     <div>
                         <label className="font-medium text-sm text-text-body">{t('settings.name')}</label>
                         <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full mt-1" />
@@ -150,7 +156,7 @@ const EditProfileModal: React.FC<{ user: User; setUser: (u: User) => void; onClo
 };
 
 // --- MAIN SCREEN COMPONENT ---
-const SettingsScreen: React.FC<SettingsScreenProps> = ({ user, setUser, isPremiumUser, onSwitchUser, onLogout, onUpgrade }) => {
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ user, setUser, isPremiumUser, onSwitchUser, onLogout, onDeleteAccount, onUpgrade }) => {
     const navigate = useNavigate();
     const [modal, setModal] = useState<'logout' | 'delete' | 'editProfile' | null>(null);
     const { performanceMode, setPerformanceMode } = usePerformance();
@@ -168,8 +174,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ user, setUser, isPremiu
     const [backendStatus, setBackendStatus] = useState<'online' | 'offline' | 'checking'>('checking');
     const [backendEnv, setBackendEnv] = useState<string>('');
 
-    const handleLangSelect = (code: string) => {
-        i18n.changeLanguage(code);
+    const handleLangSelect = (_code: string) => {
         setLangOpen(false);
     };
 
@@ -189,7 +194,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ user, setUser, isPremiu
         setCurrencyOpen(false);
     };
 
-    const languageItems = AVAILABLE_LANGUAGES.map(l => ({ key: l.code, label: l.nameEn }));
+    const languageItems = [{ key: 'en', label: 'English' }];
     const countryItems = useMemo(() => {
         const arr = [...TOP_100_COUNTRIES];
         arr.sort((a, b) => {
@@ -234,7 +239,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ user, setUser, isPremiu
         <PageLayout title={t('settings.title')}>
              <AnimatePresence>
                 {modal === 'logout' && <ConfirmationModal title={t('settings.logout.confirmTitle')} message={t('settings.logout.confirmMessage')} confirmText={t('settings.logout.button')} onConfirm={onLogout} onClose={() => setModal(null)} />}
-                {modal === 'delete' && <ConfirmationModal title={t('settings.labels.deleteAccount')} message={t('settings.privacy.deleteConfirmMessage', 'Are you sure you want to permanently delete your account? This action cannot be undone.')} confirmText={t('settings.privacy.deleteCta')} isDestructive onConfirm={onLogout} onClose={() => setModal(null)} />}
+                {modal === 'delete' && <ConfirmationModal title={t('settings.labels.deleteAccount')} message={t('settings.privacy.deleteConfirmMessage', 'Are you sure you want to permanently delete your account? This action cannot be undone.')} confirmText={t('settings.privacy.deleteCta')} isDestructive onConfirm={onDeleteAccount} onClose={() => setModal(null)} />}
                 {modal === 'editProfile' && <EditProfileModal user={user} setUser={setUser} onClose={() => setModal(null)} />}
              </AnimatePresence>
             <div className="py-6 space-y-6 max-w-2xl mx-auto px-4">
@@ -295,8 +300,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ user, setUser, isPremiu
                                 {backendStatus === 'online' ? `Online${backendEnv ? ` • ${backendEnv}` : ''}` : backendStatus === 'checking' ? 'Checking…' : 'Offline'}
                             </span>
                         </SettingsItem>
-                        <SettingsItem label={t('settings.language')} hasNav={false} onClick={() => setLangOpen(true)}>
-                            <span className="text-sm">{AVAILABLE_LANGUAGES.find(l => l.code === i18n.language)?.nameEn || 'Amharic'}</span>
+                        <SettingsItem label="Language" hasNav={false}>
+                            <span className="text-sm">English</span>
                         </SettingsItem>
                         <SettingsItem label={t('settings.country')} hasNav={false} onClick={() => setCountryOpen(true)}>
                             <span className="text-sm">{country ? `${country.en}` : 'United States'}</span>
@@ -312,15 +317,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ user, setUser, isPremiu
 
                 
 
-                <SelectorModal
-                    isOpen={langOpen}
-                    title={t('settings.modals.selectLanguage')}
-                    items={languageItems}
-                    initialSelectedKey={i18n.language}
-                    onClose={() => setLangOpen(false)}
-                    onSelect={handleLangSelect}
-                    placeholder={t('settings.modals.searchLanguages')}
-                />
+                
                 <SelectorModal
                     isOpen={countryOpen}
                     title={t('settings.modals.selectCountry')}

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { User, Product } from '../../types';
-import { mockMerchant, mockAliExpressProducts } from '../../data/mockData';
 import Card from '../../components/Card';
 import VentyButton from '../../components/VentyButton';
 import ShareModal from '../../components/ShareModal';
@@ -10,6 +9,7 @@ import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, MagnifyingGlassIcon, CloudA
 import { useLocalization } from '../../hooks/useLocalization';
 import ProductCard from '../../components/ProductCard';
 import { toInputDateString, safeDate } from '../../utils/dateUtils';
+import { createProduct, fetchMerchantProducts } from '../../lib/products';
 
 interface ProductManagementScreenProps {
     user: User;
@@ -27,7 +27,7 @@ interface ImageFile {
 const PreviewModal: React.FC<{ productData: Product, user: User, onClose: () => void }> = ({ productData, user, onClose }) => (
     <div className="fixed inset-0 bg-bg-tertiary/75 backdrop-blur-md flex justify-center items-center p-4 z-[60] animate-fadeIn" onClick={onClose}>
         <div className="w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <h3 className="text-center text-white font-bold text-xl mb-4">Ad Preview</h3>
+            <h3 className="text-center text-white font-bold text-xl mb-4">Product Preview</h3>
             <ProductCard product={productData} user={user} />
         </div>
     </div>
@@ -91,25 +91,50 @@ const InventoryView: React.FC<{user: User; products: Product[]; setProducts: Rea
 
     const handleCloseModal = () => { setIsModalOpen(false); setEditingProduct(null); };
     
-    const handleSubmit = (status: 'published' | 'draft') => {
+    const [formError, setFormError] = useState<string | null>(null);
+    const handleSubmit = async (status: 'published' | 'draft') => {
         const safeStartDate = safeDate(startDate);
         const safeEndDate = safeDate(endDate);
+        const toEng = (s: string) => {
+            const map: Record<string, string> = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};
+            return s.replace(/[٠-٩۰-۹]/g, d => map[d] || d);
+        };
+        const titleTrim = title.trim();
+        const categoryTrim = category.trim();
+        const priceStr = toEng(price);
+        const priceVal = parseFloat(priceStr);
+        if (!titleTrim) { setFormError('Product name is required.'); return; }
+        if (!Number.isFinite(priceVal) || priceVal <= 0) { setFormError('Price is required and must be greater than 0.'); return; }
+        if (!categoryTrim) { setFormError('Category is required.'); return; }
 
         const productData: Partial<Product> = { 
-            title, category, 
-            price: parseFloat(price) || 0,
-            originalPrice: parseFloat(originalPrice) || undefined,
-            stock: parseInt(stock) || 0,
+            title: titleTrim, category: categoryTrim, 
+            price: priceVal,
+            originalPrice: parseFloat(toEng(originalPrice)) || undefined,
+            stock: parseInt(toEng(stock)) || 0,
             description, isFeatured,
             publishDate: publishOption === 'schedule' ? (safeStartDate ? safeStartDate.toISOString() : undefined) : new Date().toISOString(),
             endDate: publishOption === 'schedule' ? (safeEndDate ? safeEndDate.toISOString() : undefined) : undefined,
             imageUrl: images[0]?.url || 'https://picsum.photos/seed/newproduct/300/200',
             images: images.map(img => img.url),
         };
-        console.log("Saving as:", status, productData);
-        alert(`Product saved as ${status}!`);
-        // Here you would handle the actual data saving
-        handleCloseModal();
+        const res = await createProduct(user, { ...productData, status });
+        if (res && (res as any).ok) {
+            let slug = user.merchantProfile?.slug;
+            if (!slug && user.email) {
+                slug = user.email.replace(/[^a-z0-9]/gi, '-');
+            }
+            if (slug) {
+                const list = await fetchMerchantProducts(slug);
+                setProducts(Array.isArray(list) ? list : []);
+            }
+            setFormError(null);
+            handleCloseModal();
+        } else {
+            const message = (res?.data as any)?.message || (res as any)?.error || 'Unknown error';
+            console.error('Product save failed:', { payload: productData, response: res });
+            setFormError(typeof message === 'string' ? message : 'Failed to save product.');
+        }
     };
     
     const handleDelete = (productId: string) => {
@@ -127,11 +152,18 @@ const InventoryView: React.FC<{user: User; products: Product[]; setProducts: Rea
 
     // --- Media Handlers ---
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const files = Array.from(e.target.files).slice(0, 10 - images.length);
-            const newImages = files.map((file: File, index) => ({ id: `new-${Date.now()}-${index}`, file, url: URL.createObjectURL(file) }));
+        if (!e.target.files) return;
+        const files = Array.from(e.target.files).slice(0, 10 - images.length);
+        const toDataUrl = (file: File) =>
+            new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+                reader.readAsDataURL(file);
+            });
+        Promise.all(files.map(f => toDataUrl(f))).then(urls => {
+            const newImages = files.map((file, index) => ({ id: `new-${Date.now()}-${index}`, file, url: urls[index] }));
             setImages(prev => [...prev, ...newImages]);
-        }
+        });
     };
     
     const removeImage = (id: string) => setImages(prev => prev.filter(img => img.id !== id));
@@ -227,7 +259,7 @@ const InventoryView: React.FC<{user: User; products: Product[]; setProducts: Rea
                  {showPreview && <PreviewModal productData={previewProductData} user={user} onClose={() => setShowPreview(false)} />}
                 <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col animate-cinematic-enter" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-between items-center mb-4 pb-4 border-b border-bg-tertiary">
-                        <h2 className="text-xl font-bold">{editingProduct ? 'Edit Product Ad' : 'Create New Product Ad'}</h2>
+                        <h2 className="text-xl font-bold">{editingProduct ? 'Edit Product' : 'Create New Product'}</h2>
                         <button onClick={handleCloseModal}><XMarkIcon className="h-6 w-6" /></button>
                     </div>
                     
@@ -319,9 +351,10 @@ const InventoryView: React.FC<{user: User; products: Product[]; setProducts: Rea
                         </div>
                         <div className="flex space-x-2">
                             <VentyButton onClick={() => setShowPreview(true)} variant="secondary" className="flex items-center space-x-1"><EyeIcon className="h-5 w-5" onClick={() => {}}/><span>Preview</span></VentyButton>
-                            <VentyButton onClick={() => handleSubmit('published')} label="Publish Ad"></VentyButton>
+                            <VentyButton onClick={() => handleSubmit('published')} label="Publish Product"></VentyButton>
                         </div>
                     </div>
+                    {formError && <div className="mt-3 text-xs text-feedback-error bg-feedback-error-bg rounded px-2 py-1">{formError}</div>}
                 </Card>
             </div>
         )}
@@ -339,7 +372,7 @@ const DropshippingView: React.FC<{ user: User; onProductImport: (product: Produc
     const [sellingPrice, setSellingPrice] = useState('');
     const { formatCurrency } = useLocalization();
 
-    const handleSearch = () => { setIsLoading(true); setTimeout(() => { setSearchResults(mockAliExpressProducts); setIsLoading(false); }, 1000); };
+    const handleSearch = () => { setIsLoading(true); setTimeout(() => { setSearchResults([]); setIsLoading(false); }, 1000); };
     
     const handleImport = () => {
         if (!isImporting || !sellingPrice) return;
@@ -372,7 +405,11 @@ const DropshippingView: React.FC<{ user: User; onProductImport: (product: Produc
             <Card><h2 className="text-xl font-bold mb-2">Find Products to Sell on AliExpress</h2><div className="flex space-x-2"><input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="e.g. 'wireless headphones'" className="w-full p-3 bg-bg-secondary rounded-lg border border-bg-tertiary"/><VentyButton onClick={handleSearch} disabled={isLoading} className="!w-auto px-4">{isLoading ? '...' : <MagnifyingGlassIcon className="h-6 w-6" onClick={() => {}} />}</VentyButton></div></Card>
             {isLoading && <div className="text-center p-8">Loading...</div>}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {searchResults.map(product => {
+                {searchResults.length === 0 ? (
+                    <Card className="text-center py-12 col-span-full">
+                        <p className="text-text-secondary">No results found. Connect a supplier or import your own products.</p>
+                    </Card>
+                ) : searchResults.map(product => {
                     const isAlreadyImported = inventoryProductIds.includes(`imported-${product.id}`);
                     return (
                     <Card key={product.id} className="!p-3"><img src={product.imageUrl} alt={product.title} className="w-full h-40 object-cover rounded-lg mb-2" loading="lazy" /><h3 className="font-semibold h-12">{product.title}</h3><p className="text-sm text-text-secondary">Source Price: {formatCurrency(product.sourcePrice || 0)}</p><VentyButton onClick={() => {setIsImporting(product); setSellingPrice('')}} disabled={isAlreadyImported} className="w-full mt-4 !py-2 !text-sm">{isAlreadyImported ? (<span className="flex items-center justify-center"><CheckCircleIcon className="h-5 w-5 mr-2" /> Imported</span>) : (<span className="flex items-center justify-center"><CloudArrowDownIcon className="h-5 w-5 mr-2" /> Import to Store</span>)}</VentyButton></Card>
@@ -396,7 +433,7 @@ const DropshippingView: React.FC<{ user: User; onProductImport: (product: Produc
 const ProductManagementScreen: React.FC<ProductManagementScreenProps> = ({ user }) => {
     const location = useLocation();
     const [view, setView] = useState<'inventory' | 'dropshipping'>('inventory');
-    const [products, setProducts] = useState<Product[]>(mockMerchant.products);
+    const [products, setProducts] = useState<Product[]>([]);
     
     useEffect(() => {
         if (location.hash === '#dropshipping') {
@@ -405,6 +442,15 @@ const ProductManagementScreen: React.FC<ProductManagementScreenProps> = ({ user 
             setView('inventory');
         }
     }, [location.hash]);
+    
+    useEffect(() => {
+        const slug = user.merchantProfile?.slug;
+        if (!slug) return;
+        Promise.resolve().then(async () => {
+            const list = await fetchMerchantProducts(slug);
+            setProducts(Array.isArray(list) ? list : []);
+        });
+    }, [user.merchantProfile?.slug]);
 
     const addProductToInventory = (newProduct: Product) => {
         setProducts(prev => [newProduct, ...prev]);

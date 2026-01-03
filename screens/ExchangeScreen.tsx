@@ -28,7 +28,7 @@ const ExchangeScreen: React.FC<{ user: User }> = ({ user }) => {
     const [activeFilter, setActiveFilter] = useState<FilterOption>('all');
     const navigate = useNavigate();
     // FIX: Destructure currency from the updated useLocalization hook.
-    const { formatCurrency, currency } = useLocalization();
+    const { formatCurrency, currency, toEnglishDigits } = useLocalization();
 
     // State for Converter
     const [amount, setAmount] = useState('1');
@@ -87,7 +87,7 @@ const ExchangeScreen: React.FC<{ user: User }> = ({ user }) => {
                                 <div>
                                     <label>Amount</label>
                                     <div className="flex items-center space-x-2">
-                                        <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-2 bg-bg-secondary rounded-lg border border-border-primary"/>
+                                        <input type="number" value={amount} onChange={e => setAmount(toEnglishDigits(e.target.value))} className="w-full p-2 bg-bg-secondary rounded-lg border border-border-primary"/>
                                         <select value={fromCurrency} onChange={e => setFromCurrency(e.target.value)} className="p-2 bg-bg-secondary rounded-lg border border-border-primary">
                                             {allCurrencies.map(c => <option key={c}>{c}</option>)}
                                         </select>

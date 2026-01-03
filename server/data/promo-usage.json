@@ -1,6 +1,33 @@
 [
   {
     "code": "alex456123",
+    "userId": "u_mjnkpv4f_ump012",
+    "status": "activated",
+    "meta": {
+      "expiresAt": "2026-02-16T21:03:56.569Z"
+    },
+    "at": "2026-01-02T21:03:56.569Z"
+  },
+  {
+    "code": "alex456123",
+    "userId": "u_mjnl1jnq_5d1jv0",
+    "status": "activated",
+    "meta": {
+      "expiresAt": "2026-02-10T01:04:32.354Z"
+    },
+    "at": "2025-12-27T01:04:32.355Z"
+  },
+  {
+    "code": "alex456123",
+    "userId": "u_mjc3jkj0_iurtl7",
+    "status": "activated",
+    "meta": {
+      "expiresAt": "2026-02-02T01:11:35.537Z"
+    },
+    "at": "2025-12-19T01:11:35.537Z"
+  },
+  {
+    "code": "alex456123",
     "userId": "u_mjc1nncp_6wq1yo",
     "status": "activated",
     "meta": {
@@ -25,32 +52,5 @@
       "expiresAt": "2026-01-28T22:08:58.572Z"
     },
     "at": "2025-12-14T22:08:58.573Z"
-  },
-  {
-    "code": "zxcv456",
-    "userId": "1",
-    "status": "invalid",
-    "at": "2025-12-14T19:54:34.539Z"
-  },
-  {
-    "code": "zxcasd456",
-    "userId": "1",
-    "status": "activated",
-    "at": "2025-12-14T17:03:28.915Z"
-  },
-  {
-    "code": "zxcv456",
-    "userId": "1",
-    "status": "invalid",
-    "at": "2025-12-14T17:02:30.643Z"
-  },
-  {
-    "code": "alex456123",
-    "userId": "1",
-    "status": "activated",
-    "meta": {
-      "expiresAt": "2026-01-28T16:50:34.009Z"
-    },
-    "at": "2025-12-14T16:50:34.010Z"
   }
 ]

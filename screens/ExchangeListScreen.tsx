@@ -17,7 +17,7 @@ const containerVariants = {
 
 const itemVariants = {
     hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { type: 'spring' as const, stiffness: 100 } },
+    visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100 } },
 };
 
 const PortfolioPreviewCard: React.FC<{ user: User }> = ({ user }) => {

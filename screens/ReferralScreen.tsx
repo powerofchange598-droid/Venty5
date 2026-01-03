@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { User, Referral } from '../types';
-import { mockReferrals } from '../data/mockData';
 import PageLayout from '../components/PageLayout';
 import Card from '../components/Card';
 import VentyButton from '../components/VentyButton';
@@ -44,10 +43,6 @@ const ReferralScreen: React.FC<ReferralScreenProps> = ({ user }) => {
         }
     };
 
-    const totalEarned = mockReferrals
-        .filter(r => r.status === 'Completed')
-        .reduce((sum, r) => sum + r.rewardAmount, 0);
-
     return (
         <PageLayout title="Referral Program">
             <div className="p-4 lg:p-6 max-w-2xl mx-auto space-y-6">
@@ -79,44 +74,17 @@ const ReferralScreen: React.FC<ReferralScreenProps> = ({ user }) => {
                     </div>
                 </Card>
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 gap-4">
-                    <Card className="text-center !p-4">
-                        <UserPlusIcon className="h-8 w-8 mx-auto text-blue-500 mb-1" />
-                        <p className="text-2xl font-bold">{mockReferrals.length}</p>
-                        <p className="text-xs text-text-secondary uppercase tracking-wide">Friends Invited</p>
-                    </Card>
-                    <Card className="text-center !p-4">
-                        <GiftIcon className="h-8 w-8 mx-auto text-green-500 mb-1" />
-                        <p className="text-2xl font-bold text-feedback-success">{formatCurrency(totalEarned)}</p>
-                        <p className="text-xs text-text-secondary uppercase tracking-wide">Total Earned</p>
-                    </Card>
-                </div>
+                {/* Empty State (no real referral data yet) */}
+                <Card className="text-center !p-8">
+                    <UserPlusIcon className="h-10 w-10 mx-auto text-text-secondary mb-2" />
+                    <p className="text-text-secondary">No referrals yet. Start inviting to see your rewards here.</p>
+                </Card>
 
                 {/* History List */}
                 <div>
                     <h3 className="text-lg font-bold font-serif mb-3 px-1">Referral History</h3>
                     <div className="space-y-3">
-                        {mockReferrals.length > 0 ? (
-                            mockReferrals.map(ref => (
-                                <Card key={ref.id} className="!p-3 flex justify-between items-center">
-                                    <div>
-                                        <p className="font-semibold text-sm">{ref.refereeName}</p>
-                                        <p className="text-xs text-text-secondary">{safeFormatDate(ref.date)}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${ref.status === 'Completed' ? 'bg-feedback-success/10 text-feedback-success' : 'bg-feedback-warning/10 text-feedback-warning'}`}>
-                                            {ref.status}
-                                        </span>
-                                        {ref.status === 'Completed' && (
-                                            <p className="text-xs font-bold text-feedback-success mt-1">+{formatCurrency(ref.rewardAmount)}</p>
-                                        )}
-                                    </div>
-                                </Card>
-                            ))
-                        ) : (
-                            <p className="text-center text-text-secondary py-8">No referrals yet. Start inviting!</p>
-                        )}
+                        <p className="text-center text-text-secondary py-8">No referral activity yet.</p>
                     </div>
                 </div>
 

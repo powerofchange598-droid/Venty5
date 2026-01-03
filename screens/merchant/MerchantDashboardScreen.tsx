@@ -9,7 +9,6 @@ import SmartNudge from '../../components/merchant/SmartNudge';
 import MerchantVerificationCard from '../../components/merchant/MerchantVerificationCard'; 
 import { CubeIcon, ShoppingBagIcon, BanknotesIcon, UsersIcon, CheckBadgeIcon, ShareIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 import { ComposedChart, Area, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { mockMerchant } from '../../data/mockData';
 import { useLocalization } from '../../hooks/useLocalization';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -41,35 +40,22 @@ const KPIStatCard: React.FC<{ title: string; value: string; icon: React.ElementT
 };
 
 
-const salesData = [
-  { name: 'Mon', revenue: 4000, orders: 24 },
-  { name: 'Tue', revenue: 3000, orders: 13 },
-  { name: 'Wed', revenue: 2000, orders: 48 },
-  { name: 'Thu', revenue: 2780, orders: 39 },
-  { name: 'Fri', revenue: 1890, orders: 48 },
-  { name: 'Sat', revenue: 2390, orders: 38 },
-  { name: 'Sun', revenue: 3490, orders: 43 },
-];
+const salesData: { name: string; revenue: number; orders: number }[] = [];
 
 const MerchantDashboardScreen: React.FC<MerchantDashboardScreenProps> = ({ user }) => {
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-    const { formatCurrency } = useLocalization();
+    const { formatCurrency, formatNumberEn } = useLocalization();
     const { theme } = useTheme();
-    const totalRevenue = mockMerchant.orders.filter(o => o.status === 'completed').reduce((sum, order) => sum + order.total, 0);
+    const totalRevenue = 0;
 
     // Chart Configuration based on Theme
     const chartConfig = useMemo(() => {
-        const isDark = theme === 'dark';
-        const isTrader = theme === 'trader';
-        
-        // Royal Blue #4169E1 for Light, Light Gold #FFD700 for Dark
-        const primaryColor = isDark ? '#FFD700' : isTrader ? '#E53935' : '#4169E1';
-        const secondaryColor = isDark ? '#FFF' : '#1E293B';
-        const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
-        const tooltipBg = isDark ? '#1E1E1E' : '#FFFFFF';
-        const tooltipBorder = isDark ? '#333' : '#E2E8F0';
-        
-        return { primary: primaryColor, text: secondaryColor, grid: gridColor, tooltipBg, tooltipBorder };
+        const primaryColor = 'var(--brand-primary)';
+        const textColor = 'var(--text-primary)';
+        const gridColor = 'var(--border-primary)';
+        const tooltipBg = 'var(--bg-secondary)';
+        const tooltipBorder = 'var(--border-primary)';
+        return { primary: primaryColor, text: textColor, grid: gridColor, tooltipBg, tooltipBorder };
     }, [theme]);
 
     const handleExport = () => {
@@ -116,76 +102,85 @@ const MerchantDashboardScreen: React.FC<MerchantDashboardScreenProps> = ({ user 
                     </div>
                     
                     {/* KPIs */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                        <KPIStatCard title="Total Products" value={mockMerchant.products.length.toString()} icon={CubeIcon} color="primary"/>
-                        <KPIStatCard title="Total Orders" value={mockMerchant.orders.length.toString()} icon={ShoppingBagIcon} color="accent"/>
-                        <KPIStatCard title="Monthly Revenue" value={formatCurrency(totalRevenue)} icon={BanknotesIcon} color="purple"/>
-                        <KPIStatCard title="Active Customers" value="67" icon={UsersIcon} color="orange"/>
+                    <div className="grid grid-cols-1 gap-4 mb-8">
+                        <Card className="!p-4">
+                            <p className="text-lg font-semibold">No sales data yet</p>
+                            <p className="text-text-secondary mt-1">Add products and start receiving orders to see KPIs here.</p>
+                        </Card>
                     </div>
                     
                     {/* Professional Chart */}
                     <div className="w-full h-80 relative" style={{ minHeight: 320 }}>
-                         <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                            <ComposedChart
-                              data={salesData}
-                              margin={{ top: 10, right: 0, left: -20, bottom: 0 }}
-                            >
-                              <defs>
-                                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor={chartConfig.primary} stopOpacity={0.3}/>
-                                  <stop offset="95%" stopColor={chartConfig.primary} stopOpacity={0}/>
-                                </linearGradient>
-                              </defs>
-                              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={chartConfig.grid} />
-                              <XAxis 
-                                dataKey="name" 
-                                axisLine={false} 
-                                tickLine={false} 
-                                tick={{ fill: chartConfig.text, fontSize: 12, fontWeight: 500 }} 
-                                dy={10}
-                              />
-                              <YAxis 
-                                yAxisId="left"
-                                axisLine={false} 
-                                tickLine={false} 
-                                tick={{ fill: chartConfig.text, fontSize: 12, fontWeight: 500 }} 
-                                tickFormatter={(value) => formatCurrency(value as number).replace(/(\.00|,00)/, '')} 
-                              />
-                              <YAxis yAxisId="right" orientation="right" hide />
-                              <Tooltip 
-                                 contentStyle={{
-                                     backgroundColor: chartConfig.tooltipBg,
-                                     borderColor: chartConfig.tooltipBorder,
-                                     borderRadius: '12px',
-                                     boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
-                                 }}
-                                 itemStyle={{ color: chartConfig.text, fontWeight: 600 }}
-                                 formatter={(value: number, name: string) => [
-                                     name === 'revenue' ? formatCurrency(value) : value,
-                                     name === 'revenue' ? 'Revenue' : 'Orders'
-                                 ]}
-                                 cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                              />
-                              <Area 
-                                yAxisId="left"
-                                type="monotone" 
-                                dataKey="revenue" 
-                                stroke={chartConfig.primary} 
-                                strokeWidth={3} 
-                                fillOpacity={1} 
-                                fill="url(#colorRevenue)" 
-                                activeDot={{ r: 6, strokeWidth: 0, fill: chartConfig.primary }}
-                              />
-                              <Bar 
-                                yAxisId="right"
-                                dataKey="orders" 
-                                barSize={12} 
-                                fill={chartConfig.text} 
-                                opacity={0.1} 
-                                radius={[4, 4, 0, 0]} 
-                              />
-                            </ComposedChart>
-                          </ResponsiveContainer>
+                         {salesData.length > 0 ? (
+                           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                              <ComposedChart
+                                data={salesData}
+                                margin={{ top: 10, right: 0, left: -20, bottom: 0 }}
+                              >
+                                <defs>
+                                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={chartConfig.primary} stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor={chartConfig.primary} stopOpacity={0}/>
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={chartConfig.grid} />
+                                <XAxis 
+                                  dataKey="name" 
+                                  axisLine={false} 
+                                  tickLine={false} 
+                                  tick={{ fill: chartConfig.text, fontSize: 12, fontWeight: 500 }} 
+                                  dy={10}
+                                />
+                                <YAxis 
+                                  yAxisId="left"
+                                  axisLine={false} 
+                                  tickLine={false} 
+                                  tick={{ fill: chartConfig.text, fontSize: 12, fontWeight: 500 }} 
+                                  tickFormatter={(value) => formatCurrency(value as number).replace(/(\.00|,00)/, '')} 
+                                />
+                                <YAxis yAxisId="right" orientation="right" hide />
+                                <Tooltip 
+                                   contentStyle={{
+                                       backgroundColor: chartConfig.tooltipBg,
+                                       borderColor: chartConfig.tooltipBorder,
+                                       borderRadius: '12px',
+                                       boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+                                   }}
+                                   itemStyle={{ color: chartConfig.text, fontWeight: 600 }}
+                                   formatter={(value: number, name: string) => [
+                                       name === 'revenue' ? formatCurrency(value) : formatNumberEn(value),
+                                       name === 'revenue' ? 'Revenue' : 'Orders'
+                                   ]}
+                                   cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                                />
+                                <Area 
+                                  yAxisId="left"
+                                  type="monotone" 
+                                  dataKey="revenue" 
+                                  stroke={chartConfig.primary} 
+                                  strokeWidth={3} 
+                                  fillOpacity={1} 
+                                  fill="url(#colorRevenue)" 
+                                  activeDot={{ r: 6, strokeWidth: 0, fill: chartConfig.primary }}
+                                />
+                                <Bar 
+                                  yAxisId="right"
+                                  dataKey="orders" 
+                                  barSize={12} 
+                                  fill={chartConfig.text} 
+                                  opacity={0.1} 
+                                  radius={[4, 4, 0, 0]} 
+                                />
+                              </ComposedChart>
+                            </ResponsiveContainer>
+                         ) : (
+                           <div className="flex items-center justify-center h-full text-center">
+                             <div>
+                               <p className="text-lg font-semibold">No sales yet</p>
+                               <p className="text-text-secondary mt-1">Publish products and promote your store to see sales analytics.</p>
+                             </div>
+                           </div>
+                         )}
                     </div>
                 </Card>
 

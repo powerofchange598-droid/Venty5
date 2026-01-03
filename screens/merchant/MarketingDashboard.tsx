@@ -3,20 +3,19 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, AdType, MerchantAd, Product, AdSubscription, AdPlanId } from '../../types';
-import { mockProducts } from '../../data/mockData';
 import Card from '../../components/Card';
 import VentyButton from '../../components/VentyButton';
 import MerchantPageLayout from '../../components/merchant/MerchantPageLayout';
 import { useLocalization } from '../../hooks/useLocalization';
 import {
     PlusIcon, XMarkIcon, EyeIcon, PhotoIcon, CubeIcon, VideoCameraIcon,
-    BuildingStorefrontIcon, CalendarDaysIcon, CheckCircleIcon, SparklesIcon,
+    BuildingStorefrontIcon, CalendarDaysIcon, CheckCircleIcon,
     CurrencyDollarIcon, AdjustmentsHorizontalIcon, InformationCircleIcon, ArrowPathIcon
 } from '@heroicons/react/24/solid';
 import { RectangleStackIcon } from '@heroicons/react/24/outline';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useToast } from '../../hooks/useToast';
-import { GoogleGenAI } from '@google/genai';
+import { api } from '../../lib/api';
 
 
 // --- TYPES & CONSTANTS ---
@@ -53,144 +52,7 @@ const analyticsData: AnalyticsData[] = [
     { name: 'Day 7', impressions: 3490, clicks: 430 },
 ];
 
-// --- VIDEO GENERATOR MODAL ---
-const VideoGeneratorModal: React.FC<{
-    onClose: () => void;
-    onComplete: (videoUrl: string) => void;
-}> = ({ onClose, onComplete }) => {
-    const [prompt, setPrompt] = useState('');
-    const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
-    const [status, setStatus] = useState<'idle' | 'generating' | 'polling' | 'success' | 'error'>('idle');
-    const [videoUrl, setVideoUrl] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [apiKeySelected, setApiKeySelected] = useState(false);
-    const [loadingMessage, setLoadingMessage] = useState('');
-
-    useEffect(() => {
-        const checkKey = async () => {
-            if (window.aistudio) {
-                const hasKey = await window.aistudio.hasSelectedApiKey();
-                setApiKeySelected(hasKey);
-            }
-        };
-        checkKey();
-    }, []);
-
-    const handleSelectKey = async () => {
-        await window.aistudio.openSelectKey();
-        setApiKeySelected(true); // Assume success to avoid race conditions
-    };
-
-    const handleGenerate = async () => {
-        if (!prompt) return;
-        setStatus('generating');
-        setError(null);
-        setVideoUrl(null);
-        try {
-            const ai = new GoogleGenAI({ apiKey: (import.meta as any).env?.VITE_GOOGLE_API_KEY || '' });
-            let operation = await ai.models.generateVideos({
-                model: 'veo-3.1-fast-generate-preview',
-                prompt: prompt,
-                config: { numberOfVideos: 1, resolution: '720p', aspectRatio: aspectRatio }
-            });
-            setStatus('polling');
-            while (!operation.done) {
-                await new Promise(resolve => setTimeout(resolve, 10000));
-                operation = await ai.operations.getVideosOperation({ operation: operation });
-            }
-            if (operation.error) throw new Error(operation.error.message);
-            
-            const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-            if (downloadLink) {
-                const response = await fetch(`${downloadLink}&key=${(import.meta as any).env?.VITE_GOOGLE_API_KEY || ''}`);
-                if (!response.ok) throw new Error(`Failed to download video: ${response.statusText}`);
-                const videoBlob = await response.blob();
-                const objectUrl = URL.createObjectURL(videoBlob);
-                setVideoUrl(objectUrl);
-                setStatus('success');
-            } else {
-                throw new Error("Video generation completed but no download link was found.");
-            }
-        } catch (err: any) {
-            let errorMessage = err.message || "An unknown error occurred.";
-            if (errorMessage.includes("Requested entity was not found.")) {
-                errorMessage = "API Key not found or invalid. Please select a valid API key.";
-                setApiKeySelected(false);
-            }
-            setError(errorMessage);
-            setStatus('error');
-        }
-    };
-    
-    const loadingMessages = useMemo(() => [
-        "Initializing video synthesis...", "Compositing visual elements...", "Rendering motion vectors...",
-        "Applying temporal coherence...", "Finalizing high-resolution output...", "This can take a few minutes, please wait...",
-    ], []);
-
-    useEffect(() => {
-        let interval: ReturnType<typeof setInterval>;
-        if (status === 'generating' || status === 'polling') {
-            let index = 0;
-            setLoadingMessage(loadingMessages[0]);
-            interval = setInterval(() => {
-                index = (index + 1) % loadingMessages.length;
-                setLoadingMessage(loadingMessages[index]);
-            }, 5000);
-        }
-        return () => clearInterval(interval);
-    }, [status, loadingMessages]);
-
-    const renderContent = () => {
-        if (!apiKeySelected) {
-            return (
-                <div className="text-center">
-                    <h3 className="text-xl font-bold">API Key Required</h3>
-                    <p className="text-text-secondary my-4">Video generation with Veo requires a Google AI API key with billing enabled. Please select your key to continue.</p>
-                    <p className="text-xs text-text-secondary mb-4">For more information, see the <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline">billing documentation</a>.</p>
-                    <VentyButton onClick={handleSelectKey}>Select API Key</VentyButton>
-                </div>
-            );
-        }
-        
-        const isProcessing = status === 'generating' || status === 'polling';
-
-        if (isProcessing) {
-            return (
-                <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-brand-primary mx-auto"></div>
-                    <p className="mt-4 font-semibold">{loadingMessage}</p>
-                </div>
-            );
-        }
-
-        if (status === 'success' && videoUrl) {
-            return (
-                <div className="space-y-4">
-                    <video src={videoUrl} controls autoPlay className="w-full rounded-lg" />
-                    <VentyButton onClick={() => onComplete(videoUrl)}>Use This Video</VentyButton>
-                </div>
-            );
-        }
-        
-        return (
-             <div className="space-y-4">
-                <div><label className="font-medium text-sm">Video Prompt</label><textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={3} placeholder="e.g., A cinematic shot of a robot skateboarding through a neon-lit city" className="w-full mt-1"/></div>
-                <div><label className="font-medium text-sm">Aspect Ratio</label><div className="flex gap-2 mt-1"><VentyButton onClick={() => setAspectRatio('16:9')} variant={aspectRatio === '16:9' ? 'primary' : 'secondary'} className="!w-1/2">Landscape (16:9)</VentyButton><VentyButton onClick={() => setAspectRatio('9:16')} variant={aspectRatio === '9:16' ? 'primary' : 'secondary'} className="!w-1/2">Portrait (9:16)</VentyButton></div></div>
-                {error && <p className="text-feedback-error text-sm text-center">{error}</p>}
-                <VentyButton onClick={handleGenerate} disabled={!prompt}>Generate Video</VentyButton>
-            </div>
-        );
-    };
-
-    return (
-        <motion.div className="fixed inset-0 bg-bg-primary/50 backdrop-blur-sm flex justify-center items-center p-4 z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-bg-secondary rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center p-4 border-b border-border-primary"><h2 className="text-xl font-bold font-serif">Generate Video with AI</h2><button onClick={onClose}><XMarkIcon className="h-6 w-6"/></button></div>
-                <div className="p-6 overflow-y-auto">{renderContent()}</div>
-            </motion.div>
-        </motion.div>
-    );
-};
+// --- VIDEO GENERATOR REMOVED ---
 
 
 // --- MAIN SCREEN ---
@@ -344,8 +206,9 @@ const AdCampaignsSection: React.FC<{ ads: MerchantAd[]; onCreateClick: () => voi
         ) : (
             <div className="space-y-3">
                 {ads.map(ad => {
-                    const product = ad.adType === 'product' ? mockProducts.find(p => p.id === ad.content.productId) : null;
-                    return <Card key={ad.id} className="!p-3 flex items-center space-x-3 bg-bg-primary"><div className="w-16 h-16 bg-bg-tertiary rounded-lg flex-shrink-0"><img src={product?.imageUrl || ad.content.imageUrl || ''} alt={(product?.title || ad.content.caption || ad.adType.replace('_', ' '))} loading="lazy" className="w-full h-full object-cover rounded-lg"/></div><div className="flex-grow"><p className="font-bold">{product?.title || ad.content.caption || ad.adType.replace('_', ' ')}</p><p className="text-sm capitalize text-text-secondary">{ad.adType.replace('_', ' ')}</p></div><div className="text-right"><p className="font-semibold text-feedback-success">Impressions: {ad.impressions.toLocaleString()}</p><p className="text-sm">Clicks: {ad.clicks.toLocaleString()}</p></div></Card>;
+                    const title = ad.content.caption || ad.adType.replace('_', ' ');
+                    const image = ad.content.imageUrl || '';
+                    return <Card key={ad.id} className="!p-3 flex items-center space-x-3 bg-bg-primary"><div className="w-16 h-16 bg-bg-tertiary rounded-lg flex-shrink-0"><img src={image} alt={title} loading="lazy" className="w-full h-full object-cover rounded-lg"/></div><div className="flex-grow"><p className="font-bold">{title}</p><p className="text-sm capitalize text-text-secondary">{ad.adType.replace('_', ' ')}</p></div><div className="text-right"><p className="font-semibold text-feedback-success">Impressions: {ad.impressions.toLocaleString()}</p><p className="text-sm">Clicks: {ad.clicks.toLocaleString()}</p></div></Card>;
                 })}
             </div>
         )}
@@ -407,7 +270,6 @@ const AdEditorModal: React.FC<{
     const [content, setContent] = useState<Partial<MerchantAd['content']>>({});
     const [budget, setBudget] = useState(50);
     const [duration, setDuration] = useState(7);
-    const [isVideoGenOpen, setIsVideoGenOpen] = useState(false);
 
     const handleNext = () => setStep(2);
     
@@ -437,11 +299,6 @@ const AdEditorModal: React.FC<{
         onClose();
     };
 
-    const handleVideoGenerationComplete = (videoUrl: string) => {
-        setContent({ ...content, videoUrl });
-        setIsVideoGenOpen(false);
-    };
-
     return (
         <motion.div className="fixed inset-0 bg-bg-primary/50 backdrop-blur-sm flex justify-center items-center p-4 z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-bg-secondary rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -451,7 +308,7 @@ const AdEditorModal: React.FC<{
                     {step === 1 ? (
                         <ChooseTypeStep availableTypes={availableAdTypes} selectedType={selectedType} onSelect={setSelectedType} onNext={handleNext} />
                     ) : (
-                        <ConfigureAdStep type={selectedType!} content={content} setContent={setContent} budget={budget} setBudget={setBudget} duration={duration} setDuration={setDuration} user={user} openVideoGenerator={() => setIsVideoGenOpen(true)} />
+                        <ConfigureAdStep type={selectedType!} content={content} setContent={setContent} budget={budget} setBudget={setBudget} duration={duration} setDuration={setDuration} user={user} />
                     )}
                 </div>
 
@@ -462,14 +319,6 @@ const AdEditorModal: React.FC<{
                     </div>
                 )}
             </motion.div>
-            <AnimatePresence>
-            {isVideoGenOpen && (
-                <VideoGeneratorModal
-                    onClose={() => setIsVideoGenOpen(false)}
-                    onComplete={handleVideoGenerationComplete}
-                />
-            )}
-            </AnimatePresence>
         </motion.div>
     );
 };
@@ -492,43 +341,104 @@ const ChooseTypeStep: React.FC<{ availableTypes: AdTypeInfo[]; selectedType: AdT
         <VentyButton onClick={onNext} disabled={!selectedType} label="Continue"></VentyButton>
     </div>
 );
-const ConfigureAdStep: React.FC<{ type: AdTypeInfo; content: Partial<MerchantAd['content']>; setContent: (c: Partial<MerchantAd['content']>) => void; budget: number; setBudget: (b: number) => void; duration: number; setDuration: (d: number) => void; user: User; openVideoGenerator: () => void; }> = ({ type, content, setContent, budget, setBudget, duration, setDuration, user, openVideoGenerator }) => {
-    const merchantProducts = useMemo(() => mockProducts.filter(p => p.ownerId === user.id || p.merchantInfo?.slug === user.merchantProfile?.slug), [user]);
-    
+
+const AdPreview: React.FC<{ type: AdTypeInfo; content: Partial<MerchantAd['content']>; user: User }> = ({ type, content, user }) => {
+    const title = content.caption || type.title;
+    const image = content.imageUrl || content.videoUrl || 'https://via.placeholder.com/150';
+
     return (
-        <div className="space-y-6">
-            <div>
-                <h3 className="font-semibold text-lg">2. Configure "{type.title}" Content</h3>
-                <div className="mt-2 space-y-3 p-4 bg-bg-primary rounded-lg">
-                    {type.id === 'product' && <select value={content.productId || ''} onChange={e => setContent({ productId: e.target.value })} className="w-full"><option value="" disabled>Select a product to promote</option>{merchantProducts.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}</select>}
-                    {type.id === 'banner' && <input type="text" value={content.imageUrl || ''} onChange={e => setContent({ ...content, imageUrl: e.target.value })} placeholder="Banner image URL (e.g., https://...)" className="w-full" />}
-                    {type.id === 'video' && (
-                        <div className="space-y-2">
-                             <input type="text" value={content.videoUrl || ''} onChange={e => setContent({ ...content, videoUrl: e.target.value })} placeholder="Video URL (e.g., .mp4) or generate one" className="w-full" />
-                             <VentyButton onClick={openVideoGenerator} variant="secondary" className="!w-full !text-sm"><SparklesIcon className="h-4 w-4 mr-1" /> Generate Video with AI</VentyButton>
-                        </div>
-                    )}
-                    {type.id === 'carousel' && <textarea value={content.carouselImages?.join('\n') || ''} onChange={e => setContent({ ...content, carouselImages: e.target.value.split('\n') })} placeholder="Image URLs (one per line)" rows={3} className="w-full" />}
-                    {(type.id === 'banner' || type.id === 'carousel' || type.id === 'video') && <input type="text" value={content.caption || ''} onChange={e => setContent({ ...content, caption: e.target.value })} placeholder="Caption (optional)" className="w-full" />}
-                    {(type.id === 'store_feature') && <p className="text-sm text-text-secondary">Your store will be featured across the app. No extra content needed!</p>}
+        <div className="bg-bg-primary p-4 rounded-xl border border-border-primary shadow-sm">
+            <div className="flex items-center space-x-2 mb-2">
+                <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden">
+                     {user.merchantProfile?.logoUrl ? <img src={user.merchantProfile.logoUrl} className="w-full h-full object-cover"/> : <BuildingStorefrontIcon className="p-1 text-gray-500"/>}
+                </div>
+                <div>
+                    <p className="font-bold text-sm">{user.merchantProfile?.storeName || user.name}</p>
+                    <p className="text-xs text-text-secondary">Sponsored</p>
                 </div>
             </div>
-            <div>
-                <h3 className="font-semibold text-lg">3. Set Budget & Duration</h3>
-                <Card className="!p-4 mt-2 grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
-                    <div>
-                        <label className="font-medium text-sm flex items-center space-x-1"><CurrencyDollarIcon className="h-4 w-4"/><span>Budget ($)</span></label>
-                        <input type="number" value={budget} onChange={e => setBudget(Number(e.target.value))} className="w-full mt-1"/>
+            <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-2 flex items-center justify-center">
+                {type.id === 'video' ? (
+                     <VideoCameraIcon className="h-12 w-12 text-gray-400"/>
+                ) : (
+                     <img src={image} className="w-full h-full object-cover" alt="Ad Preview"/>
+                )}
+            </div>
+            <div className="p-1">
+                 <p className="font-medium">{title}</p>
+                 <button className="w-full mt-2 py-1.5 bg-brand-primary text-white text-sm font-bold rounded-lg">Shop Now</button>
+            </div>
+        </div>
+    );
+};
+
+const ConfigureAdStep: React.FC<{ type: AdTypeInfo; content: Partial<MerchantAd['content']>; setContent: (c: Partial<MerchantAd['content']>) => void; budget: number; setBudget: (b: number) => void; duration: number; setDuration: (d: number) => void; user: User; }> = ({ type, content, setContent, budget, setBudget, duration, setDuration, user }) => {
+    const [merchantProducts, setMerchantProducts] = useState<Product[]>([]);
+    useEffect(() => {
+        const slug = user.merchantProfile?.slug;
+        if (!slug) {
+            setMerchantProducts([]);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            const res = await api.listMerchantProducts(slug);
+            const items = (res.ok && res.data && Array.isArray(res.data.items)) ? res.data.items : [];
+            if (!cancelled) setMerchantProducts(items as Product[]);
+        })();
+        return () => { cancelled = true; };
+    }, [user]);
+    
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-6">
+                <div>
+                    <h3 className="font-semibold text-lg mb-2">Configure Content</h3>
+                    <div className="space-y-4">
+                        {type.id === 'product' && (
+                             <div>
+                                <label className="text-sm font-medium block mb-1">Select Product</label>
+                                <select value={content.productId || ''} onChange={e => setContent({ productId: e.target.value })} className="w-full rounded-xl border-border-primary bg-bg-primary px-4 py-2"><option value="" disabled>Choose a product...</option>{merchantProducts.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}</select>
+                             </div>
+                        )}
+                        {(type.id === 'banner' || type.id === 'video') && (
+                             <div>
+                                <label className="text-sm font-medium block mb-1">Media URL</label>
+                                <input type="text" value={content.imageUrl || content.videoUrl || ''} onChange={e => setContent({ ...content, [type.id === 'video' ? 'videoUrl' : 'imageUrl']: e.target.value })} placeholder="https://..." className="w-full rounded-xl border-border-primary bg-bg-primary px-4 py-2" />
+                             </div>
+                        )}
+                        {(type.id === 'banner' || type.id === 'carousel' || type.id === 'video') && (
+                             <div>
+                                <label className="text-sm font-medium block mb-1">Ad Caption</label>
+                                <input type="text" value={content.caption || ''} onChange={e => setContent({ ...content, caption: e.target.value })} placeholder="Write a catchy headline..." className="w-full rounded-xl border-border-primary bg-bg-primary px-4 py-2" />
+                             </div>
+                        )}
                     </div>
-                     <div>
-                        <label className="font-medium text-sm flex items-center space-x-1"><CalendarDaysIcon className="h-4 w-4"/><span>Duration (days)</span></label>
-                        <select value={duration} onChange={e => setDuration(Number(e.target.value))} className="w-full mt-1"><option value={1}>1 Day</option><option value={7}>7 Days</option><option value="30">30 Days</option></select>
+                </div>
+
+                <div>
+                    <h3 className="font-semibold text-lg mb-2">Budget & Reach</h3>
+                    <div className="bg-bg-primary p-4 rounded-xl border border-border-primary space-y-4">
+                        <div>
+                            <div className="flex justify-between mb-1"><label className="text-sm font-medium">Daily Budget</label><span className="font-bold">${budget}</span></div>
+                            <input type="range" min="5" max="500" step="5" value={budget} onChange={e => setBudget(Number(e.target.value))} className="w-full accent-brand-primary"/>
+                        </div>
+                        <div>
+                             <div className="flex justify-between mb-1"><label className="text-sm font-medium">Duration</label><span className="font-bold">{duration} Days</span></div>
+                             <input type="range" min="1" max="30" step="1" value={duration} onChange={e => setDuration(Number(e.target.value))} className="w-full accent-brand-primary"/>
+                        </div>
+                        <div className="pt-2 border-t border-border-primary flex justify-between items-center">
+                            <span className="text-sm text-text-secondary">Est. Reach</span>
+                            <span className="text-xl font-bold text-brand-primary">~{((budget / (duration || 1)) * 1000).toLocaleString()} <span className="text-xs text-text-secondary font-normal">people</span></span>
+                        </div>
                     </div>
-                    <div className="text-center p-3 bg-bg-secondary rounded-lg">
-                        <p className="text-sm text-text-secondary">Est. Daily Reach</p>
-                        <p className="font-bold text-xl text-brand-primary">~{((budget / (duration || 1)) * 1000).toLocaleString()}</p>
-                    </div>
-                </Card>
+                </div>
+            </div>
+
+            <div className="md:sticky md:top-0">
+                <h3 className="font-semibold text-lg mb-2">Preview</h3>
+                <AdPreview type={type} content={content} user={user} />
+                <p className="text-xs text-text-secondary mt-2 text-center">Preview might slightly differ from actual ad.</p>
             </div>
         </div>
     );

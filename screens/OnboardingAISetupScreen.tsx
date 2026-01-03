@@ -123,13 +123,15 @@ interface OnboardingAISetupScreenProps {
     user: User;
     budget: BudgetCategory[];
     isOnboarding?: boolean;
-    onComplete?: (data: { fixedExpenses: FixedExpense[], newBudget: BudgetCategory[], goals: Goal[] }) => void;
+    onComplete?: (data: { fixedExpenses: FixedExpense[], newBudget: BudgetCategory[], goals: Goal[], salary?: number, familyMembers?: number }) => void;
 }
 
 const OnboardingAISetupScreen: React.FC<OnboardingAISetupScreenProps> = ({ user, onComplete, isOnboarding = false }) => {
     const { formatCurrency } = useLocalization();
     const [onboardingExpenses, setOnboardingExpenses] = useState<Record<string, number>>({});
     const [view, setView] = useState<'entry' | 'summary'>('entry');
+    const [income, setIncome] = useState<number>(Number(user.salary) || 0);
+    const [household, setHousehold] = useState<number>(Number(user.familyMembers) || 1);
     
     const handleAddExpense = (name: string, amount: number) => {
         setOnboardingExpenses(prev => ({...prev, [name]: amount}));
@@ -155,12 +157,13 @@ const OnboardingAISetupScreen: React.FC<OnboardingAISetupScreenProps> = ({ user,
                 icon: expenseCategories[key].icon,
             };
         });
-        onComplete({ fixedExpenses: finalExpenses, newBudget: [], goals: [] });
+        onComplete({ fixedExpenses: finalExpenses, newBudget: [], goals: [], salary: income > 0 ? income : undefined, familyMembers: household > 0 ? household : undefined });
     };
     
     const totalFixedExpenses = Object.keys(onboardingExpenses).reduce((sum, key) => sum + (onboardingExpenses[key] || 0), 0);
-    const fixedCostPercentage = Number(user.salary) > 0 ? (totalFixedExpenses / Number(user.salary)) * 100 : 0;
-    const remainingIncome = Number(user.salary) - totalFixedExpenses;
+    const baseIncome = income > 0 ? income : Number(user.salary) || 0;
+    const fixedCostPercentage = baseIncome > 0 ? (totalFixedExpenses / baseIncome) * 100 : 0;
+    const remainingIncome = baseIncome - totalFixedExpenses;
     
     const pieData = [
         { name: 'Fixed Costs', value: totalFixedExpenses },
@@ -179,8 +182,23 @@ const OnboardingAISetupScreen: React.FC<OnboardingAISetupScreenProps> = ({ user,
                     {/* Entry Panel */}
                     <div className="flex-grow flex flex-col bg-bg-primary lg:w-2/3 h-full p-4 space-y-4">
                         <h1 className="text-2xl font-bold font-serif text-text-primary">Set Up Your Fixed Expenses</h1>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="font-medium text-sm text-text-body">Monthly Income</label>
+                                <input type="number" value={income || ''} onChange={e => setIncome(Number(e.target.value) || 0)} placeholder="e.g., 5000" className="w-full mt-1" />
+                            </div>
+                            <div>
+                                <label className="font-medium text-sm text-text-body">Household Size</label>
+                                <input type="number" value={household || 1} onChange={e => setHousehold(Number(e.target.value) || 1)} placeholder="e.g., 4" className="w-full mt-1" min={1} />
+                                {(!household || household <= 1) && (
+                                    <p className="text-xs text-text-secondary mt-1">
+                                        If you don’t add household size, we’ll treat your account as a single-person plan. You can change this later in settings.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
                         <p className="text-text-secondary">
-                            Your monthly income is {formatCurrency(user.salary)}. Let's add your recurring monthly costs like rent, utilities, and subscriptions to get a clear picture of your finances.
+                            Add your recurring monthly costs like rent, utilities, and subscriptions to get a clear picture of your finances.
                         </p>
                         <AddExpenseForm onAdd={handleAddExpense} />
                     </div>

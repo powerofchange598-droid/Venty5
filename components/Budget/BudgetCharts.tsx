@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import Card from '../Card';
 import { useTheme } from '../../hooks/useTheme';
+import { useLocalization } from '../../hooks/useLocalization';
 
 // Updated colors to match the new Royal Blue / Gold theme
 const getThemeColors = (theme: 'light' | 'dark' | 'trader') => {
@@ -58,6 +59,7 @@ const ChartWrapper: React.FC<{ title: string; children: React.ReactNode; centerL
 
 export const LeftToSpendChart: React.FC<{ left: number; spent: number; currency: string }> = ({ left, spent, currency }) => {
     const { theme } = useTheme();
+    const { formatNumberEn } = useLocalization();
     const COLORS = useMemo(() => getThemeColors(theme), [theme]);
     const data = [
         { name: 'Remaining', value: Math.max(0, left), color: COLORS.primary },
@@ -65,7 +67,7 @@ export const LeftToSpendChart: React.FC<{ left: number; spent: number; currency:
     ];
 
     return (
-        <ChartWrapper title="AMOUNT LEFT TO SPEND" centerLabel={`${currency}${left.toLocaleString()}`}>
+        <ChartWrapper title="AMOUNT LEFT TO SPEND" centerLabel={`${currency}${formatNumberEn(left)}`}>
             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <PieChart>
                     <Pie
@@ -81,6 +83,10 @@ export const LeftToSpendChart: React.FC<{ left: number; spent: number; currency:
                             <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                     </Pie>
+                    <Tooltip 
+                        cursor={{ fill: 'transparent' }}
+                        formatter={(value: number) => formatNumberEn(value)}
+                    />
                 </PieChart>
             </ResponsiveContainer>
         </ChartWrapper>
@@ -89,6 +95,7 @@ export const LeftToSpendChart: React.FC<{ left: number; spent: number; currency:
 
 export const CashFlowChart: React.FC<{ income: number; out: number }> = ({ income, out }) => {
     const { theme } = useTheme();
+    const { formatNumberEn } = useLocalization();
     const COLORS = useMemo(() => getThemeColors(theme), [theme]);
     const data = [
         { name: 'Income', value: income },
@@ -104,6 +111,7 @@ export const CashFlowChart: React.FC<{ income: number; out: number }> = ({ incom
                     <Tooltip 
                         cursor={{fill: 'transparent'}}
                         contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                        formatter={(value: number) => formatNumberEn(value)}
                     />
                     <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
                         <Cell fill={COLORS.secondary} />
@@ -117,6 +125,7 @@ export const CashFlowChart: React.FC<{ income: number; out: number }> = ({ incom
 
 export const AllocationChart: React.FC<{ bills: number; expenses: number; savings: number; debt: number }> = ({ bills, expenses, savings, debt }) => {
     const { theme } = useTheme();
+    const { formatNumberEn } = useLocalization();
     const COLORS = useMemo(() => getThemeColors(theme), [theme]);
     const data = [
         { name: 'Bills', value: bills, color: COLORS.primary },
@@ -143,6 +152,7 @@ export const AllocationChart: React.FC<{ bills: number; expenses: number; saving
                     </Pie>
                     <Tooltip 
                          contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                         formatter={(value: number) => formatNumberEn(value)}
                     />
                 </PieChart>
             </ResponsiveContainer>
