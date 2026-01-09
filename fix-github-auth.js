@@ -1,85 +1,82 @@
 #!/usr/bin/env node
 
 import { execSync } from 'child_process';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, appendFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-console.log('🔐 GitHub Authentication Fix for Venty');
-console.log('======================================');
+console.log('🔧 GITHUB AUTHENTICATION FIX FOR VENTY APP');
+console.log('==========================================');
 console.log();
 
-// Check current authentication method
-console.log('📡 Current GitHub authentication status:');
+console.log('🎯 WHAT THIS WILL DO:');
+console.log('✅ Fix GitHub authentication issues');
+console.log('✅ Set up Personal Access Token');
+console.log('✅ Enable file synchronization');
+console.log('✅ Connect your Venty app to GitHub');
+console.log();
+
+console.log('📋 STEP-BY-STEP INSTRUCTIONS:');
+console.log();
+
+console.log('1️⃣ GET YOUR GITHUB PERSONAL ACCESS TOKEN:');
+console.log('   • Open this link: https://github.com/settings/tokens');
+console.log('   • Click "Generate new token (classic)"');
+console.log('   • Name: "Venty App Sync"');
+console.log('   • Select: ✅ repo (Full control of private repositories)');
+console.log('   • Click "Generate token"');
+console.log('   • COPY the token (you won\'t see it again!)');
+console.log();
+
+console.log('2️⃣ SET UP AUTHENTICATION:');
+console.log('   • Copy your token from GitHub');
+console.log('   • Run this command (replace YOUR_TOKEN):');
+console.log('     node setup-my-token.js YOUR_TOKEN');
+console.log();
+
+console.log('3️⃣ VERIFY CONNECTION:');
+console.log('   • Run: git push origin main');
+console.log('   • Should work without errors');
+console.log();
+
+console.log('4️⃣ START AUTO-SYNC:');
+console.log('   • Run: npm run sync:start');
+console.log('   • Files will sync automatically every 60 seconds');
+console.log();
+
+console.log('🔍 CURRENT STATUS:');
 try {
-    // Try to fetch from GitHub
-    execSync('git fetch origin', { encoding: 'utf8' });
-    console.log('✅ Authentication working!');
-} catch (error) {
-    console.log('❌ Authentication failed');
-    console.log('🔧 Setting up new authentication...');
+    // Check current remotes
+    const remotes = execSync('git remote -v', { encoding: 'utf8' });
+    console.log('📡 Current remotes:');
+    console.log(remotes);
     
-    console.log('\n🎯 Choose authentication method:');
-    console.log('1. Personal Access Token (Recommended)');
-    console.log('2. SSH Key');
-    console.log('3. Update remote URL with credentials');
-    
-    // For now, let's set up Personal Access Token authentication
-    console.log('\n🔑 Setting up Personal Access Token authentication...');
-    
-    // Backup current remote
+    // Test connection
+    console.log('\n🧪 Testing connection...');
     try {
-        const currentUrl = execSync('git remote get-url origin', { encoding: 'utf8' }).trim();
-        console.log(`Current URL: ${currentUrl}`);
-        
-        // Update to use token authentication
-        console.log('\n📋 To fix authentication, follow these steps:');
-        console.log('1. Go to GitHub Settings > Developer settings > Personal access tokens');
-        console.log('2. Create a new token with "repo" permissions');
-        console.log('3. Copy your token');
-        console.log('4. Run this command (replace YOUR_TOKEN with your actual token):');
-        console.log('   git remote set-url origin https://YOUR_TOKEN@github.com/sorrymaster66-eng/venty.git');
-        
-        console.log('\n🔄 Alternative: Use SSH authentication');
-        console.log('1. Generate SSH key: ssh-keygen -t ed25519 -C "your_email@example.com"');
-        console.log('2. Add SSH key to GitHub: Settings > SSH and GPG keys');
-        console.log('3. Update remote: git remote set-url origin git@github.com:sorrymaster66-eng/venty.git');
-        
-        // Create a helper script for token setup
-        const tokenHelper = `#!/usr/bin/env node
-import { execSync } from 'child_process';
-import { readFileSync, writeFileSync } from 'fs';
-
-console.log('🔑 GitHub Token Setup Helper');
-console.log('============================');
-console.log();
-console.log('📝 To set up your GitHub token:');
-console.log('1. Go to: https://github.com/settings/tokens');
-console.log('2. Click "Generate new token"');
-console.log('3. Select "repo" scope');
-console.log('4. Copy the generated token');
-console.log('5. Run: node setup-token.js YOUR_TOKEN_HERE');
-`;
-        
-        writeFileSync(join(__dirname, 'setup-token-helper.js'), tokenHelper);
-        
-        console.log('\n✅ Created setup-token-helper.js');
-        console.log('Run: node setup-token-helper.js for detailed instructions');
-        
+        execSync('git fetch origin', { encoding: 'utf8', timeout: 10000 });
+        console.log('✅ Connection successful!');
     } catch (error) {
-        console.log('❌ Could not get current remote URL');
+        console.log('❌ Connection failed - authentication needed');
+        console.log('   Error:', error.message);
     }
+    
+} catch (error) {
+    console.log('❌ Git repository not found');
+    console.log('   Run: git init');
 }
 
-console.log('\n🚀 Quick fix commands:');
-console.log('# For Personal Access Token:');
-console.log('git remote set-url origin https://YOUR_TOKEN@github.com/sorrymaster66-eng/venty.git');
 console.log();
-console.log('# For SSH:');
-console.log('git remote set-url origin git@github.com:sorrymaster66-eng/venty.git');
+console.log('🚀 READY TO FIX AUTHENTICATION?');
+console.log('   Just run: node setup-my-token.js YOUR_TOKEN');
+console.log('   (Replace YOUR_TOKEN with your actual GitHub token)');
 console.log();
-console.log('# Test connection:');
-console.log('git fetch origin');
+
+console.log('💡 NEED HELP?');
+console.log('   • Check sync logs: npm run sync:log');
+console.log('   • Stop sync: npm run sync:stop');
+console.log('   • Manual sync: npm run sync:manual');
+console.log('   • GitHub token help: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token');
