@@ -8,7 +8,7 @@ const ThemeToggle: React.FC = () => {
     const { theme, setTheme } = useTheme();
 
     const cycleTheme = () => {
-        const themes: Theme[] = ['light', 'dark', 'trader'];
+        const themes: Theme[] = ['light', 'dark-gold', 'dark-red'];
         const currentIndex = themes.indexOf(theme);
         const nextTheme = themes[(currentIndex + 1) % themes.length];
         setTheme(nextTheme);
@@ -22,7 +22,7 @@ const ThemeToggle: React.FC = () => {
 
     const renderIcon = () => {
         if (theme === 'light') return <SunIcon className="h-5 w-5 text-text-secondary" />;
-        if (theme === 'dark') return <MoonIcon className="h-5 w-5 text-text-secondary" />;
+        if (theme === 'dark-gold') return <MoonIcon className="h-5 w-5 text-text-secondary" />;
         return <BoltIcon className="h-5 w-5 text-text-secondary" />;
     };
 

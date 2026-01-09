@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 
-export type Theme = 'light' | 'dark' | 'trader';
+export type Theme = 'light' | 'dark-gold' | 'dark-red';
 
 interface ThemeContextType {
   theme: Theme;
@@ -13,7 +13,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const getInitialTheme = (): Theme => {
     try {
         const storedTheme = localStorage.getItem('theme');
-        if (storedTheme === 'light' || storedTheme === 'dark' || storedTheme === 'trader') {
+        if (storedTheme === 'light' || storedTheme === 'dark-gold' || storedTheme === 'dark-red') {
             return storedTheme as Theme;
         }
     } catch (e) {
@@ -38,7 +38,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   
   useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark', 'trader');
+    root.classList.remove('light', 'dark', 'trader', 'dark-gold', 'dark-red');
     root.classList.add(theme);
   }, [theme]);
   

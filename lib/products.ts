@@ -33,7 +33,19 @@ export const createProduct = async (user: User, data: Partial<Product> & { statu
     created_at: new Date().toISOString(),
   };
   try {
-    const res = await api.createMerchantProduct(slug, payload);
+    let res = await api.createMerchantProduct(slug, payload);
+    if (!res.ok && (res.status === 404) && ((res.data as any)?.error === 'merchant_not_found')) {
+      const bootstrap = {
+        storeName: user.merchantProfile?.brandName || user.name,
+        ownerId: user.id,
+        email: user.email,
+        storeStatus: 'active'
+      };
+      const up = await api.updateMerchant(slug, bootstrap);
+      if (up.ok) {
+        res = await api.createMerchantProduct(slug, payload);
+      }
+    }
     return res;
   } catch (e: any) {
     return { ok: false, status: 0, error: e?.message || 'network_error' } as any;

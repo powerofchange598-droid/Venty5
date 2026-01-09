@@ -35,7 +35,7 @@ const pageVariants = {
     in: { opacity: 1, x: 0 },
     out: { opacity: 0, x: -50 },
 };
-const pageTransition = { type: 'tween', ease: 'anticipate', duration: 0.5 };
+const pageTransition = { type: 'tween', ease: 'anticipate', duration: 0.5 } as any;
 
 const ProgressBar: React.FC<{ current: number; total: number }> = ({ current, total }) => (
     <div className="w-full bg-bg-tertiary rounded-full h-2.5">

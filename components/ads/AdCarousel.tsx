@@ -49,29 +49,43 @@ const PromotedProductAd: React.FC<{ ad: MerchantAd }> = ({ ad }) => {
     );
 };
 
-const BannerAd: React.FC<{ ad: MerchantAd }> = ({ ad }) => (
-    <AdCardWrapper link={ad.content.link}>
-        <SponsorTag merchantId={ad.merchantId} />
-        <img src={ad.content.imageUrl} alt={ad.content.caption || 'Advertisement'} className="w-full h-full object-cover" loading="lazy" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent p-6 flex flex-col justify-end">
-            <h3 className="text-white text-2xl font-bold font-serif">{ad.content.caption}</h3>
-        </div>
-    </AdCardWrapper>
-);
+const BannerAd: React.FC<{ ad: MerchantAd }> = ({ ad }) => {
+    const hasImage = !!ad.content.imageUrl;
+    if (!hasImage) return null;
+    return (
+        <AdCardWrapper link={ad.content.link}>
+            <SponsorTag merchantId={ad.merchantId} />
+            <img src={ad.content.imageUrl!} alt={ad.content.caption || 'Advertisement'} className="w-full h-full object-cover" loading="lazy" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent p-6 flex flex-col justify-end">
+                <h3 className="text-white text-2xl font-bold font-serif">{ad.content.caption}</h3>
+            </div>
+        </AdCardWrapper>
+    );
+};
 
-const VideoAd: React.FC<{ ad: MerchantAd }> = ({ ad }) => (
-    <AdCardWrapper link={ad.content.link}>
-        <SponsorTag merchantId={ad.merchantId} />
-        <video src={ad.content.videoUrl} autoPlay muted loop playsInline className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-black/30 p-6 flex flex-col justify-end">
-            <h3 className="text-white text-xl font-bold">{ad.content.caption}</h3>
-        </div>
-    </AdCardWrapper>
-);
+const VideoAd: React.FC<{ ad: MerchantAd }> = ({ ad }) => {
+    const videoUrl = ad.content.videoUrl;
+    const validVideo = !!videoUrl && (videoUrl.startsWith('/assets/') || /\.mp4($|\?)/i.test(videoUrl));
+    const poster = ad.content.imageUrl;
+    if (!validVideo && !poster) return null;
+    return (
+        <AdCardWrapper link={ad.content.link}>
+            <SponsorTag merchantId={ad.merchantId} />
+            {validVideo ? (
+                <video src={videoUrl!} autoPlay muted loop playsInline preload="metadata" poster={poster} className="w-full h-full object-cover" />
+            ) : (
+                <img src={poster!} alt={ad.content.caption || 'Advertisement'} className="w-full h-full object-cover" loading="lazy" />
+            )}
+            <div className="absolute inset-0 bg-black/30 p-6 flex flex-col justify-end">
+                <h3 className="text-white text-xl font-bold">{ad.content.caption}</h3>
+            </div>
+        </AdCardWrapper>
+    );
+};
 
 const CarouselAd: React.FC<{ ad: MerchantAd }> = ({ ad }) => {
      const [imageIndex, setImageIndex] = useState(0);
-     const images = ad.content.carouselImages || [];
+    const images = (ad.content.carouselImages || []).filter(Boolean);
 
      useEffect(() => {
         const timer = setTimeout(() => {

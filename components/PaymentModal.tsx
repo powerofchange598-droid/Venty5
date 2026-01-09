@@ -4,12 +4,12 @@ import Card from './Card';
 import VentyButton from './VentyButton';
 import { XMarkIcon, CheckCircleIcon, LockClosedIcon } from '@heroicons/react/24/solid';
 
-const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
+const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } } as any;
 const modalVariants = {
     hidden: { opacity: 0, scale: 0.8 },
     visible: { opacity: 1, scale: 1, transition: { type: 'spring', damping: 15, stiffness: 200 } },
     exit: { opacity: 0, scale: 0.8 },
-};
+} as any;
 
 const FormField: React.FC<{ label: string; placeholder: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; type?: string }> = 
     ({ label, placeholder, value, onChange, type = 'text' }) => (

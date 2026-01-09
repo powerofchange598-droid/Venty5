@@ -44,9 +44,9 @@ const adTypes: AdTypeInfo[] = [
 ];
 
 const packages: AdPackage[] = [
-    { id: 'basic', name: 'Basic Plan', price: 10, durationDays: 30 },
-    { id: 'pro', name: 'Pro Plan', price: 25, durationDays: 30 },
-    { id: 'premium', name: 'Premium Plan', price: 50, durationDays: 30 },
+    { id: 'basic', name: 'Basic Plan', price: 5, durationDays: 30 },
+    { id: 'pro', name: 'Pro Plan', price: 15, durationDays: 30 },
+    { id: 'premium', name: 'Premium Plan', price: 25, durationDays: 30 },
 ];
 
 // No synthetic analytics; charts render only when real time-series data exists

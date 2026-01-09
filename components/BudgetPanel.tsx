@@ -44,17 +44,17 @@ const BudgetPanel: React.FC<BudgetPanelProps> = ({ user, budget, fixedExpenses }
 
     return (
         <motion.div 
-            variants={itemVariants} 
+            variants={itemVariants as any} 
             className="space-y-5"
             initial="hidden"
             animate="visible"
-            transition={{ staggerChildren: 0.1 }}
+            transition={{ staggerChildren: 0.1 } as any}
         >
-            <motion.div variants={itemVariants}>
+            <motion.div variants={itemVariants as any}>
                 <SpendingForecastChart formatCurrency={formatCurrency} />
             </motion.div>
             
-            <motion.div variants={itemVariants}>
+            <motion.div variants={itemVariants as any}>
                 <Card>
                      <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-bold">Top Spending</h2>

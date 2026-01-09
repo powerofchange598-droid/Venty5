@@ -158,7 +158,7 @@ const SuggestedOpportunities: React.FC = () => {
 const ProductExchangeCard: React.FC<{ item: ExchangeItem; onClick: () => void; }> = ({ item, onClick }) => {
     const { formatCurrency } = useLocalization();
     return (
-        <motion.div variants={itemVariants} onClick={onClick}>
+        <motion.div variants={itemVariants as any} onClick={onClick}>
             <Card className="group !p-4 flex flex-col h-full cursor-pointer">
                 <div className="relative overflow-hidden rounded-lg">
                     <img src={item.imageUrl} alt={item.title} className="w-full h-40 object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
@@ -193,12 +193,12 @@ const ExchangeListScreen: React.FC<{ user: User }> = ({ user }) => {
         <PageLayout title="Exchange Hub">
             <motion.div 
                 className="py-6 space-y-8"
-                variants={containerVariants}
+                variants={containerVariants as any}
                 initial="hidden"
                 animate="visible"
             >
                 {/* Currency Exchange Section */}
-                <motion.section variants={itemVariants}>
+                <motion.section variants={itemVariants as any}>
                     <h2 className="text-xl md:text-2xl font-bold font-serif mb-4">Currency Exchange</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <PortfolioPreviewCard user={user} />
@@ -209,7 +209,7 @@ const ExchangeListScreen: React.FC<{ user: User }> = ({ user }) => {
                 </motion.section>
 
                 {/* Product Exchange Section */}
-                <motion.section variants={itemVariants} className="pt-8 border-t border-border-primary">
+                <motion.section variants={itemVariants as any} className="pt-8 border-t border-border-primary">
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl md:text-2xl font-bold font-serif">Product Exchange Market</h2>
                         <VentyButton onClick={() => navigate('/exchange/post')} className="!w-auto !py-2 !px-3 !text-sm flex items-center space-x-1">

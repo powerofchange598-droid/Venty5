@@ -13,7 +13,8 @@ import { LocalizationProvider } from './hooks/useLocalization';
 
 // --- Data ---
 import { User, BudgetCategory, Goal, MerchantAd, PurchaseRequest, FixedExpense, Order, StoreConfig, Product, AdType, AdPlanId, Transaction } from './types';
-import { mockUser, mockMerchantUser, mockBudget, mockFamily, mockAds, mockPurchaseRequests, mockOrders, mockTransactions } from './data/mockData';
+import { mockFamily, mockAds, mockPurchaseRequests } from './data/mockData';
+import { api } from './lib/api';
 import { generateInitialBudget } from './utils/budgetGenerator';
 
 // --- Layout Components ---
@@ -122,7 +123,7 @@ const AppContent: React.FC = () => {
     const [onboardingComplete, setOnboardingComplete] = useState(() => localStorage.getItem('onboardingComplete') === 'true');
     
     // --- User-specific, persisted state ---
-    const [budget, setBudget] = useState<BudgetCategory[]>(mockBudget);
+    const [budget, setBudget] = useState<BudgetCategory[]>([]);
     const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
     const [goals, setGoals] = useState<Goal[]>([]);
     const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>(mockPurchaseRequests);
@@ -130,49 +131,51 @@ const AppContent: React.FC = () => {
     // --- Other state ---
     const [isPremium, setIsPremium] = useState(false);
     const [ads, setAds] = useState<MerchantAd[]>(mockAds);
-    const [orders, setOrders] = useState<Order[]>(mockOrders);
-    const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
 
     // Load user data on user change
     useEffect(() => {
-        if (user) {
-            const dataKey = `ventyUserData_${user.id}`;
-            const savedDataRaw = localStorage.getItem(dataKey);
-            if (savedDataRaw) {
-                const savedData = JSON.parse(savedDataRaw);
-                setBudget(savedData.budget || mockBudget);
-                setFixedExpenses(savedData.fixedExpenses || []);
-                setGoals(savedData.goals || []);
-                setPurchaseRequests(savedData.purchaseRequests || mockPurchaseRequests);
-                setOrders(savedData.orders || mockOrders);
-                setTransactions(savedData.transactions || mockTransactions);
-            } else {
-                // New user or no saved data, reset to defaults
-                setBudget(mockBudget);
+        let canceled = false;
+        const load = async () => {
+            if (!user) {
+                setBudget([]);
                 setFixedExpenses([]);
                 setGoals([]);
                 setPurchaseRequests(mockPurchaseRequests);
-                setOrders(mockOrders);
-                setTransactions(mockTransactions);
+                setOrders([]);
+                setTransactions([]);
+                return;
             }
-            
-            // Sync onboarding status if possible or just rely on local storage for now
-            const isCompleted = localStorage.getItem('onboardingComplete') === 'true';
-            setOnboardingComplete(isCompleted);
-        } else {
-            // No user, clear all data
-            setBudget(mockBudget);
-            setFixedExpenses([]);
-            setGoals([]);
-            setPurchaseRequests(mockPurchaseRequests);
-            setOrders(mockOrders);
-            setTransactions(mockTransactions);
-        }
+            try {
+                const res = await api.getUserData(user.id);
+                if (canceled) return;
+                const data = (res as any)?.data?.data || {};
+                setBudget(Array.isArray(data.budget) ? data.budget : []);
+                setFixedExpenses(Array.isArray(data.fixedExpenses) ? data.fixedExpenses : []);
+                setGoals(Array.isArray(data.goals) ? data.goals : []);
+                const txRes = await api.listTransactions(user.id);
+                if (!canceled) {
+                    const txItems = (txRes as any)?.data?.items || [];
+                    setTransactions(Array.isArray(txItems) ? txItems : []);
+                }
+                const isCompleted = localStorage.getItem('onboardingComplete') === 'true';
+                setOnboardingComplete(isCompleted);
+            } catch {
+                // Fallback: keep minimal local state without mock data
+                setBudget([]);
+                setFixedExpenses([]);
+                setGoals([]);
+                setTransactions([]);
+            }
+        };
+        load();
+        return () => { canceled = true; };
     }, [user]);
 
     // Save user data whenever it changes
     useEffect(() => {
-        if (user && onboardingComplete && !user.isGuest) { // Skip saving for Guest mode
+        if (user && onboardingComplete && !user.isGuest) {
             const dataKey = `ventyUserData_${user.id}`;
             const dataToSave = {
                 budget,
@@ -316,6 +319,17 @@ const AppContent: React.FC = () => {
         ));
         showToast(`Order #${orderId.split('-')[1]} has been cancelled.`, 'warning');
     }, [showToast]);
+    
+    const handleDeleteAccount = useCallback(async () => {
+        if (!user) return;
+        try {
+            await fetch(`/api/users/${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+            showToast('Your account has been deleted.', 'warning');
+            handleLogout();
+        } catch {
+            showToast('Failed to delete account. Please try again.', 'error');
+        }
+    }, [user, showToast, handleLogout]);
 
     return (
         <AnimatePresence mode="wait">
@@ -344,10 +358,10 @@ const AppContent: React.FC = () => {
                         <Route path="product/:productId" element={<ProductDetailScreen user={user} />} />
                         <Route path="cart" element={<CartScreen user={user} onCheckout={() => navigate('/payment')} />} />
                         <Route path="favourites" element={<FavouritesScreen user={user} />} />
-                        <Route path="family" element={<FamilyScreen user={user} family={mockFamily} onUpdateFamily={() => {}} purchaseRequests={purchaseRequests} />} />
+                        <Route path="family" element={<FamilyScreen user={user} family={mockFamily} onUpdateFamily={() => {}} purchaseRequests={purchaseRequests} transactions={transactions} />} />
                         <Route path="family/coordinate" element={<FamilyChatScreen user={user} family={mockFamily} />} />
                         <Route path="family/review" element={<FamilyRequestsScreen user={user} requests={purchaseRequests} onReview={handleReviewRequest} />} />
-                        <Route path="settings" element={<SettingsScreen user={user} setUser={(u: User) => updateUser(u)} isPremiumUser={isPremium} onSwitchUser={handleSwitchUser} onLogout={handleLogout} onUpgrade={() => navigate('/payment', { state: { for: 'premium_subscription', amount: 22, description: 'Venty Premium Subscription' } })} />} />
+                        <Route path="settings" element={<SettingsScreen user={user} setUser={(u: User) => updateUser(u)} isPremiumUser={isPremium} onSwitchUser={handleSwitchUser} onLogout={handleLogout} onDeleteAccount={handleDeleteAccount} onUpgrade={() => navigate('/payment', { state: { for: 'premium_subscription', amount: 22, description: 'Venty Premium Subscription' } })} />} />
                         <Route path="exchange" element={<ExchangeListScreen user={user} />} />
                         <Route path="exchange/post" element={<ExchangePostScreen user={user} />} />
                         <Route path="exchange/chat/:chatId" element={<ExchangeChatScreen currentUser={user} />} />

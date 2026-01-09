@@ -80,7 +80,17 @@ const MarketingDashboard: React.FC<MarketingDashboardProps> = ({ user, ads, onCr
         }
     }, [location.state, subscription, navigate]);
 
-    const handleSubscribe = useCallback((pkg: AdPackage) => {
+    const handleSubscribe = useCallback(async (pkg: AdPackage) => {
+        try {
+            const resp = await fetch(`/api/health`);
+            if (!resp.ok) {
+                alert('Payments are currently disabled.');
+                return;
+            }
+        } catch {
+            alert('Payments are currently disabled.');
+            return;
+        }
         const now = new Date();
         const endDate = new Date(now.getTime() + pkg.durationDays * 24 * 60 * 60 * 1000);
         
@@ -134,9 +144,9 @@ const MarketingDashboard: React.FC<MarketingDashboardProps> = ({ user, ads, onCr
 
 // --- SUBSCRIPTION & CONFIRMATION COMPONENTS ---
 const packages: AdPackage[] = [
-    { id: 'basic', name: 'Basic Plan', price: 10, durationDays: 30 },
-    { id: 'pro', name: 'Pro Plan', price: 25, durationDays: 30 },
-    { id: 'premium', name: 'Premium Plan', price: 50, durationDays: 30 },
+    { id: 'basic', name: 'Basic Plan', price: 5, durationDays: 30 },
+    { id: 'pro', name: 'Pro Plan', price: 15, durationDays: 30 },
+    { id: 'premium', name: 'Premium Plan', price: 25, durationDays: 30 },
 ];
 
 const AdPackagesSection: React.FC<{ onSubscribe: (pkg: AdPackage) => void }> = ({ onSubscribe }) => {
@@ -238,18 +248,12 @@ const AnalyticsDashboard: React.FC<{ ads: MerchantAd[]; user: User }> = ({ ads, 
                 <div className="card-gradient-analytics p-4 rounded-xl"><p className="text-sm opacity-80">Conversions</p><p className="text-3xl font-bold">{totalConversions}</p></div>
             </div>
              {/* Robust chart container for analytics */}
-             <div className="w-full h-[300px] md:h-[400px]" style={{ minHeight: 288 }}>
-                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={288}>
-                    <LineChart data={analyticsData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-primary)" />
-                        <XAxis dataKey="name" stroke="var(--text-secondary)" />
-                        <YAxis stroke="var(--text-secondary)" />
-                        <RechartsTooltip contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-primary)', borderRadius: '0.75rem' }} />
-                        <Legend />
-                        <Line type="monotone" dataKey="impressions" name="Impressions" stroke="var(--brand-primary)" strokeWidth={2} activeDot={{ r: 8 }} />
-                        <Line type="monotone" dataKey="clicks" name="Clicks" stroke="var(--feedback-success)" strokeWidth={2} />
-                    </LineChart>
-                </ResponsiveContainer>
+            <div className="w-full h-[300px] md:h-[400px] flex items-center justify-center" style={{ minHeight: 288 }}>
+                {(totalImpressions > 0 || totalClicks > 0) ? (
+                    <p className="text-text-secondary">Charts are available when time-series analytics is collected.</p>
+                ) : (
+                    <p className="text-text-secondary">No analytics yet. Launch campaigns to see insights here.</p>
+                )}
             </div>
         </Card>
     );
@@ -353,7 +357,7 @@ const AdPreview: React.FC<{ type: AdTypeInfo; content: Partial<MerchantAd['conte
                      {user.merchantProfile?.logoUrl ? <img src={user.merchantProfile.logoUrl} className="w-full h-full object-cover"/> : <BuildingStorefrontIcon className="p-1 text-gray-500"/>}
                 </div>
                 <div>
-                    <p className="font-bold text-sm">{user.merchantProfile?.storeName || user.name}</p>
+                    <p className="font-bold text-sm">{user.merchantProfile?.brandName || user.name}</p>
                     <p className="text-xs text-text-secondary">Sponsored</p>
                 </div>
             </div>

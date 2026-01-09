@@ -1,6 +1,15 @@
 [
   {
     "code": "alex456123",
+    "userId": "guest_izces18l",
+    "status": "activated",
+    "meta": {
+      "expiresAt": "2026-02-19T01:47:34.548Z"
+    },
+    "at": "2026-01-05T01:47:34.548Z"
+  },
+  {
+    "code": "alex456123",
     "userId": "u_mjnkpv4f_ump012",
     "status": "activated",
     "meta": {

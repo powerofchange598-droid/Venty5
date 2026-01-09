@@ -115,7 +115,7 @@ const InventoryView: React.FC<{user: User; products: Product[]; setProducts: Rea
             description, isFeatured,
             publishDate: publishOption === 'schedule' ? (safeStartDate ? safeStartDate.toISOString() : undefined) : new Date().toISOString(),
             endDate: publishOption === 'schedule' ? (safeEndDate ? safeEndDate.toISOString() : undefined) : undefined,
-            imageUrl: images[0]?.url || 'https://picsum.photos/seed/newproduct/300/200',
+        imageUrl: images[0]?.url || '',
             images: images.map(img => img.url),
         };
         const res = await createProduct(user, { ...productData, status });
@@ -151,19 +151,33 @@ const InventoryView: React.FC<{user: User; products: Product[]; setProducts: Rea
     };
 
     // --- Media Handlers ---
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files) return;
         const files = Array.from(e.target.files).slice(0, 10 - images.length);
-        const toDataUrl = (file: File) =>
-            new Promise<string>((resolve) => {
-                const reader = new FileReader();
+        const upload = async (file: File) => {
+            const reader = new FileReader();
+            const dataUrl: string = await new Promise(resolve => {
                 reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
                 reader.readAsDataURL(file);
             });
-        Promise.all(files.map(f => toDataUrl(f))).then(urls => {
-            const newImages = files.map((file, index) => ({ id: `new-${Date.now()}-${index}`, file, url: urls[index] }));
-            setImages(prev => [...prev, ...newImages]);
-        });
+            try {
+                const resp = await fetch(`/api/assets/upload`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dataUrl, filename: file.name }),
+                });
+                const json = await resp.json();
+                if (resp.ok && json?.ok && json?.url) return String(json.url);
+            } catch {}
+            return '';
+        };
+        const urls: string[] = [];
+        for (const f of files) {
+            const u = await upload(f);
+            urls.push(u);
+        }
+        const newImages = files.map((file, index) => ({ id: `new-${Date.now()}-${index}`, file, url: urls[index] }));
+        setImages(prev => [...prev, ...newImages]);
     };
     
     const removeImage = (id: string) => setImages(prev => prev.filter(img => img.id !== id));
@@ -174,7 +188,7 @@ const InventoryView: React.FC<{user: User; products: Product[]; setProducts: Rea
         id: editingProduct?.id || 'preview',
         title, price: parseFloat(price) || 0, originalPrice: parseFloat(originalPrice) || undefined,
         createdAt: new Date().toISOString(), merchant: user.merchantProfile?.brandName || 'Your Store',
-        imageUrl: images[0]?.url || 'https://picsum.photos/seed/placeholder/300/200', category,
+        imageUrl: images[0]?.url || '', category,
         stock: parseInt(stock) || 0, ownerId: user.id, ownerName: user.name, condition: 'New' as const, isFeatured,
         merchantInfo: { id: 'merch_preview', name: user.merchantProfile?.brandName || 'Your Store', slug: user.merchantProfile?.slug || 'your-store', logoUrl: user.merchantProfile?.logoUrl || '', city: user.merchantProfile?.governorate || '', rating: 5, deliveryDays: 2, isVerified: user.merchantProfile?.isVerified || false }
     };

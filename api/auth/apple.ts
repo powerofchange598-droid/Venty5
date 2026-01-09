@@ -10,14 +10,16 @@ export default async function handler(req: any, res: any) {
     const audience = getEnv('APPLE_CLIENT_ID') || undefined;
     const { payload } = await jose.jwtVerify(idToken, JWKS, { issuer: 'https://appleid.apple.com', audience });
     const identity = { provider: 'apple', providerId: String(payload.sub), email: (payload as any).email, name: '' };
-    const user = await upsertUserFromIdentity(identity);
+    const upserted = await upsertUserFromIdentity(identity);
+    const role = upserted.merchantProfile ? 'merchant' : 'user';
     const sessionPayload = {
-        userId: user.userId,
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
+        userId: upserted.userId,
+        email: upserted.email,
+        name: upserted.name,
+        picture: upserted.picture,
         provider: 'apple',
-        role: user.role || 'user'
+        role,
+        merchantProfile: upserted.merchantProfile
     };
     const jwt = await signSession(sessionPayload);
     setSessionCookie(res, jwt);

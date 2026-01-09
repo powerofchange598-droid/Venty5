@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useMotionValue, useTransform, animate, AnimatePresence } from 'framer-motion';
 import { User, Transaction, BudgetCategory, FixedExpense, ExpenseData, IncomeData } from '../types';
@@ -22,18 +22,18 @@ interface DashboardScreenProps {
 }
 
 // --- MOTION VARIANTS ---
-const containerVariants = {
+const containerVariants: any = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.07 } }
 };
 
-const itemVariants = {
+const itemVariants: any = {
     hidden: { y: 20, opacity: 0 },
     visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100 } },
 };
 
-const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
-const modalVariants = {
+const backdropVariants: any = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
+const modalVariants: any = {
     hidden: { opacity: 0, y: 30, scale: 0.95 },
     visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', damping: 25, stiffness: 300 } },
     exit: { opacity: 0, y: 30, scale: 0.95, transition: { duration: 0.2 } },
@@ -69,25 +69,35 @@ const ActionModal: React.FC<{ isOpen: boolean; onClose: () => void; title: strin
 
 const todayISO = new Date().toISOString().split('T')[0];
 
-const ExpenseForm: React.FC<{ categories: BudgetCategory[]; onSubmit: (data: ExpenseData) => void; onClose: () => void; }> = ({ categories, onSubmit, onClose }) => {
+type SimpleCategory = { id: string; name: string };
+const ExpenseForm: React.FC<{ categories: SimpleCategory[]; onSubmit: (data: ExpenseData & { categoryId: string }) => void; onClose: () => void; }> = ({ categories, onSubmit, onClose }) => {
     const [amount, setAmount] = useState('');
-    const [category, setCategory] = useState(categories[0]?.name || '');
+    const [categoryId, setCategoryId] = useState(categories[0]?.id || '');
     const [date, setDate] = useState(todayISO);
     const [notes, setNotes] = useState('');
+    const [expType, setExpType] = useState<'fixed' | 'variable'>('variable');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!amount || !category) return;
-        onSubmit({ amount: parseFloat(amount), category, date, notes });
+        if (!amount || !categoryId) return;
+        const selected = categories.find(c => c.id === categoryId);
+        onSubmit({ amount: parseFloat(amount), category: selected?.name || '', categoryId, date, notes, expType });
         onClose();
     };
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-            <div><label className="font-medium text-sm">Amount</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" required className="w-full mt-1"/></div>
-            <div><label className="font-medium text-sm">Category</label><select value={category} onChange={e => setCategory(e.target.value)} required className="w-full mt-1">{categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}</select></div>
+        <div><label className="font-medium text-sm">Amount</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" required className="w-full mt-1"/></div>
+            <div><label className="font-medium text-sm">Category</label><select value={categoryId} onChange={e => setCategoryId(e.target.value)} required className="w-full mt-1">{categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></div>
             <div><label className="font-medium text-sm">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full mt-1"/></div>
             <div><label className="font-medium text-sm">Notes (Optional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="e.g., Lunch with colleagues" className="w-full mt-1"></textarea></div>
+            <div>
+                <label className="font-medium text-sm">Type</label>
+                <div className="flex items-center space-x-4 mt-1">
+                    <label className="flex items-center space-x-1"><input type="radio" name="expType" checked={expType === 'variable'} onChange={() => setExpType('variable')} /><span>Variable</span></label>
+                    <label className="flex items-center space-x-1"><input type="radio" name="expType" checked={expType === 'fixed'} onChange={() => setExpType('fixed')} /><span>Fixed</span></label>
+                </div>
+            </div>
             <VentyButton htmlType="submit" onClick={()=>{}}>Add Expense</VentyButton>
         </form>
     );
@@ -98,11 +108,12 @@ const IncomeForm: React.FC<{ onSubmit: (data: IncomeData) => void; onClose: () =
     const [source, setSource] = useState('');
     const [date, setDate] = useState(todayISO);
     const [notes, setNotes] = useState('');
+    const [recurring, setRecurring] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!amount || !source) return;
-        onSubmit({ amount: parseFloat(amount), source, date, notes });
+        onSubmit({ amount: parseFloat(amount), source, date, notes, recurring });
         onClose();
     };
 
@@ -112,6 +123,10 @@ const IncomeForm: React.FC<{ onSubmit: (data: IncomeData) => void; onClose: () =
             <div><label className="font-medium text-sm">Source</label><input type="text" value={source} onChange={e => setSource(e.target.value)} placeholder="e.g., Freelance Project" required className="w-full mt-1"/></div>
             <div><label className="font-medium text-sm">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full mt-1"/></div>
             <div><label className="font-medium text-sm">Notes (Optional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="e.g., Final payment for website design" className="w-full mt-1"></textarea></div>
+            <div className="flex items-center space-x-2">
+                <input id="recurringIncome" type="checkbox" checked={recurring} onChange={e => setRecurring(e.target.checked)} />
+                <label htmlFor="recurringIncome" className="text-sm">Recurring</label>
+            </div>
             <VentyButton htmlType="submit" onClick={()=>{}}>Add Income</VentyButton>
         </form>
     );
@@ -188,7 +203,7 @@ const TransferForm: React.FC<{
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="e.g., Rent split" className="w-full mt-1"></textarea>
             </div>
             {error && <p className="text-xs text-feedback-error bg-feedback-error-bg rounded px-2 py-1">{error}</p>}
-            <VentyButton htmlType="submit" variant={confirm ? 'primary' : 'secondary'} className="!w-full">
+            <VentyButton htmlType="submit" onClick={()=>{}} variant={confirm ? 'primary' : 'secondary'} className="!w-full">
                 {confirm ? 'Confirm Transfer' : 'Continue'}
             </VentyButton>
         </form>
@@ -338,6 +353,28 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ user, isPremiumUser, 
     const [modal, setModal] = useState<'expense' | 'income' | 'transfer' | null>(null);
     const [localTx, setLocalTx] = useState<Transaction[]>(transactions);
     const [transferImpact, setTransferImpact] = useState(0); // negative for out, positive for in
+    const [expenseCategories, setExpenseCategories] = useState<SimpleCategory[]>([]);
+
+    if (!user) {
+        return <PageLayout title="Loading"><div className="p-4 text-center text-text-secondary">Loading your dashboard…</div></PageLayout>;
+    }
+
+    useEffect(() => {
+        let canceled = false;
+        (async () => {
+            try {
+                const res = await api.listExpenseCategories(user.id);
+                if (!canceled) {
+                    const items = (res as any)?.data?.items || [];
+                    const cats = Array.isArray(items) ? items.map((i: any) => ({ id: i.id, name: i.name })) : [];
+                    setExpenseCategories(cats);
+                }
+            } catch {
+                if (!canceled) setExpenseCategories([]);
+            }
+        })();
+        return () => { canceled = true; };
+    }, [user.id]);
 
     const {
         totalBudget,
@@ -348,7 +385,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ user, isPremiumUser, 
     } = useMemo(() => {
         const totalFixed = fixedExpenses.reduce((sum, e) => sum + e.amount, 0);
         const disposableIncome = user.salary - totalFixed;
-        const totalVariableSpent = budget.reduce((sum, c) => sum + c.spent, 0);
+        const totalVariableSpent = localTx.reduce((sum, t) => sum + (t.amount < 0 ? Math.abs(t.amount) : 0), 0);
         const percentage = disposableIncome > 0 ? (totalVariableSpent / disposableIncome) * 100 : 0;
         
         let insightText = "You're right on track.";
@@ -362,15 +399,53 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ user, isPremiumUser, 
             remainingBudget: disposableIncome - totalVariableSpent,
             insight: insightText,
         };
-    }, [user, budget, fixedExpenses, transferImpact]);
+    }, [user, localTx, fixedExpenses, transferImpact]);
     
-    const handleAddExpense = useCallback((data: ExpenseData) => {
+    const handleAddExpense = useCallback(async (data: ExpenseData & { categoryId: string }) => {
+        const payload = {
+            type: 'expense' as const,
+            amount: data.amount,
+            date: data.date,
+            categoryId: data.categoryId,
+            notes: data.notes,
+            expType: data.expType
+        };
+        const res = await api.createTransaction(user.id, payload);
+        if (!res.ok) { showToast('Failed to add expense.', 'error'); return; }
+        const item = (res as any)?.data?.item;
+        const tx: Transaction = item ? item : {
+            id: `tx_${Date.now()}`,
+            description: data.notes || data.category,
+            amount: -Math.abs(data.amount),
+            date: new Date().toISOString(),
+            icon: '−'
+        } as Transaction;
+        setLocalTx(prev => [tx, ...prev]);
         showToast(`Expense of ${formatCurrency(data.amount)} added!`, 'success');
-    }, [showToast, formatCurrency]);
+    }, [showToast, formatCurrency, user.id]);
 
-    const handleAddIncome = useCallback((data: IncomeData) => {
+    const handleAddIncome = useCallback(async (data: IncomeData) => {
+        const payload = {
+            type: 'income' as const,
+            amount: data.amount,
+            date: data.date,
+            source: data.source,
+            notes: data.notes,
+            recurring: data.recurring
+        };
+        const res = await api.createTransaction(user.id, payload);
+        if (!res.ok) { showToast('Failed to add income.', 'error'); return; }
+        const item = (res as any)?.data?.item;
+        const tx: Transaction = item ? item : {
+            id: `tx_${Date.now()}`,
+            description: data.notes || data.source,
+            amount: Math.abs(data.amount),
+            date: new Date().toISOString(),
+            icon: '+'
+        } as Transaction;
+        setLocalTx(prev => [tx, ...prev]);
         showToast(`Income of ${formatCurrency(data.amount)} added!`, 'success');
-    }, [showToast, formatCurrency]);
+    }, [showToast, formatCurrency, user.id]);
 
     const handleTransfer = useCallback(async (payload: { amount: number; type: TransferType; direction: 'out' | 'in'; target?: string; notes?: string; }) => {
         const res = await api.transfer(user.id, payload);
@@ -387,7 +462,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ user, isPremiumUser, 
     return (
         <PageLayout title="Home" showHeader={false}>
             <ActionModal isOpen={modal === 'expense'} onClose={() => setModal(null)} title="Add New Expense">
-                <ExpenseForm categories={budget} onSubmit={handleAddExpense} onClose={() => setModal(null)} />
+                <ExpenseForm categories={expenseCategories} onSubmit={handleAddExpense} onClose={() => setModal(null)} />
             </ActionModal>
             <ActionModal isOpen={modal === 'income'} onClose={() => setModal(null)} title="Add New Income">
                 <IncomeForm onSubmit={handleAddIncome} onClose={() => setModal(null)} />

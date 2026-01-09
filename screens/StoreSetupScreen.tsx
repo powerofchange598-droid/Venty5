@@ -4,22 +4,22 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { User, StoreConfig } from '../../types';
+import { User, StoreConfig } from '../types';
 import { useTranslation } from 'react-i18next';
 import {
     PaintBrushIcon, SparklesIcon, CreditCardIcon, GlobeAltIcon, DocumentTextIcon, BellIcon
 } from '@heroicons/react/24/outline';
 
-import SetupProgress from '../../components/merchant/setup/SetupProgress';
-import SetupDetailPanel from '../../components/merchant/setup/SetupDetailPanel';
-import ThemeEditor from '../../components/merchant/setup/ThemeEditor';
-import BrandingEditor from '../../components/merchant/setup/BrandingEditor';
-import PaymentEditor from '../../components/merchant/setup/PaymentEditor';
-import DomainEditor from '../../components/merchant/setup/DomainEditor';
-import PoliciesEditor from '../../components/merchant/setup/PoliciesEditor';
-import NotificationsEditor from '../../components/merchant/setup/NotificationsEditor';
-import VentyButton from '../../components/VentyButton';
-import MerchantPageLayout from '../../components/merchant/MerchantPageLayout';
+import SetupProgress from '../components/merchant/setup/SetupProgress';
+import SetupDetailPanel from '../components/merchant/setup/SetupDetailPanel';
+import ThemeEditor from '../components/merchant/setup/ThemeEditor';
+import BrandingEditor from '../components/merchant/setup/BrandingEditor';
+import PaymentEditor from '../components/merchant/setup/PaymentEditor';
+import DomainEditor from '../components/merchant/setup/DomainEditor';
+import PoliciesEditor from '../components/merchant/setup/PoliciesEditor';
+import NotificationsEditor from '../components/merchant/setup/NotificationsEditor';
+import VentyButton from '../components/VentyButton';
+import MerchantPageLayout from '../components/merchant/MerchantPageLayout';
 
 interface StoreSetupScreenProps {
     user: User;

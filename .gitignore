@@ -15,6 +15,13 @@ dist-ssr
 server/data/**
 !server/data/.gitkeep
 
+# Auto-sync files
+sync-log.txt
+sync-config.json
+auto-sync.bat
+auto-sync.sh
+start-sync.bat
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

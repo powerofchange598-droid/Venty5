@@ -18,8 +18,8 @@ interface SelectorModalProps {
   placeholder?: string;
 }
 
-const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } };
-const modalVariants = { hidden: { opacity: 0, y: 24, scale: 0.98 }, visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', damping: 24, stiffness: 280 } }, exit: { opacity: 0, y: 24, scale: 0.98, transition: { duration: 0.18 } } };
+const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } } as any;
+const modalVariants = { hidden: { opacity: 0, y: 24, scale: 0.98 }, visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', damping: 24, stiffness: 280 } }, exit: { opacity: 0, y: 24, scale: 0.98, transition: { duration: 0.18 } } } as any;
 
 const ITEM_HEIGHT = 44; // px
 const VIEWPORT_HEIGHT = 360; // px

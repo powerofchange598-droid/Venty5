@@ -29,7 +29,7 @@ const StoreHeader: React.FC<{ merchant: Merchant, onSearch: (term: string) => vo
     <header className="sticky top-0 z-20 bg-bg-primary/80 backdrop-blur-sm border-b border-border-primary p-3 space-y-3">
         <div className="flex items-center justify-between gap-4">
             <Link to="/market" className="flex items-center gap-3 flex-shrink-0">
-                <img src={merchant.logoUrl || ''} alt={merchant.storeName} className="w-10 h-10 rounded-full object-contain bg-white" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
+                {merchant.logoUrl && <img src={merchant.logoUrl} alt={merchant.storeName} className="w-10 h-10 rounded-full object-contain bg-white" />}
                 <h1 className="font-bold text-lg truncate flex items-center">
                     {merchant.storeName}
                     {merchant.isVerified && <CheckBadgeIcon className="h-5 w-5 text-text-secondary ml-1" title="Verified Merchant" />}
@@ -122,7 +122,11 @@ const StoreAdRenderer: React.FC<{ ad: MerchantAd; user: User; merchantProducts: 
             return (
                 <div className="w-full my-4">
                     <Card>
-                        <video src={ad.content.videoUrl} controls autoPlay muted loop playsInline className="w-full rounded-lg aspect-video bg-black"></video>
+                        {ad.content.videoUrl && (ad.content.videoUrl.startsWith('/assets/') || /\.mp4($|\?)/i.test(ad.content.videoUrl)) ? (
+                            <video src={ad.content.videoUrl} controls autoPlay muted loop playsInline preload="metadata" poster={ad.content.imageUrl} className="w-full rounded-lg aspect-video bg-black"></video>
+                        ) : ad.content.imageUrl ? (
+                            <img src={ad.content.imageUrl} alt={ad.content.caption || 'Advertisement'} className="w-full rounded-lg aspect-video object-cover" />
+                        ) : null}
                         {ad.content.caption && <p className="font-semibold mt-2 p-2">{ad.content.caption}</p>}
                     </Card>
                 </div>
@@ -130,13 +134,13 @@ const StoreAdRenderer: React.FC<{ ad: MerchantAd; user: User; merchantProducts: 
         case 'banner':
             return (
                  <div className="w-full my-4">
-                    {ad.content.link ? (
+                    {ad.content.link && ad.content.imageUrl ? (
                         <Link to={ad.content.link}>
-                            <img src={ad.content.imageUrl || ''} alt={ad.content.caption || 'Advertisement'} className="w-full rounded-lg" />
+                            <img src={ad.content.imageUrl} alt={ad.content.caption || 'Advertisement'} className="w-full rounded-lg" />
                         </Link>
-                    ) : (
-                        <img src={ad.content.imageUrl || ''} alt={ad.content.caption || 'Advertisement'} className="w-full rounded-lg" />
-                    )}
+                    ) : ad.content.imageUrl ? (
+                        <img src={ad.content.imageUrl} alt={ad.content.caption || 'Advertisement'} className="w-full rounded-lg" />
+                    ) : null}
                 </div>
             );
         case 'carousel':
@@ -145,8 +149,8 @@ const StoreAdRenderer: React.FC<{ ad: MerchantAd; user: User; merchantProducts: 
                 <Card>
                         <HorizontalScroller>
                              <div className="flex gap-4 p-2">
-                                {(ad.content.carouselImages || []).map((img, i) => (
-                                    <img key={i} src={img || ''} alt={`Ad slide ${i+1}`} className="w-64 h-40 object-cover rounded-lg snap-center"/>
+                                {(ad.content.carouselImages || []).filter(Boolean).map((img, i) => (
+                                    <img key={i} src={img} alt={`Ad slide ${i+1}`} className="w-64 h-40 object-cover rounded-lg snap-center"/>
                                 ))}
                              </div>
                      </HorizontalScroller>

@@ -3,12 +3,13 @@ import PageLayout from '../components/PageLayout';
 import Card from '../components/Card';
 import VentyButton from '../components/VentyButton';
 import { useLocalization } from '../hooks/useLocalization';
-import { InvestmentOption } from '../types';
+// Using a lightweight sample type for demo items
 
-const sample: Array<InvestmentOption & { invested: number; current: number; status: 'active' | 'completed' }> = [
-  { id: 'inv-1', name: 'Index Fund (S&P 500)', riskLevel: 'medium', invested: 5000, current: 5600, status: 'active' },
-  { id: 'inv-2', name: 'Government Bonds', riskLevel: 'low', invested: 3000, current: 3100, status: 'active' },
-  { id: 'inv-3', name: 'Tech Growth ETF', riskLevel: 'high', invested: 2000, current: 2500, status: 'completed' },
+type InvestmentSample = { id: string; name: string; invested: number; current: number; status: 'active' | 'completed' };
+const sample: InvestmentSample[] = [
+  { id: 'inv-1', name: 'Index Fund (S&P 500)', invested: 5000, current: 5600, status: 'active' },
+  { id: 'inv-2', name: 'Government Bonds', invested: 3000, current: 3100, status: 'active' },
+  { id: 'inv-3', name: 'Tech Growth ETF', invested: 2000, current: 2500, status: 'completed' },
 ];
 
 const InvestmentsScreen: React.FC = () => {
@@ -54,8 +55,8 @@ const InvestmentsScreen: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <VentyButton variant="outline">View Details</VentyButton>
-                  <VentyButton variant="secondary">Manage</VentyButton>
+                  <VentyButton variant="outline" onClick={() => {}}>View Details</VentyButton>
+                  <VentyButton variant="secondary" onClick={() => {}}>Manage</VentyButton>
                 </div>
               </Card>
             );

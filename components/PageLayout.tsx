@@ -20,7 +20,7 @@ const pageTransition = {
     type: "tween",
     ease: "anticipate",
     duration: 0.4
-};
+} as any;
 
 const PageLayout: React.FC<PageLayoutProps> = ({ title, children, rightAccessory, showHeader = true }) => {
     return (

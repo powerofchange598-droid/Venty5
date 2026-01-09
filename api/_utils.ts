@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 
 type Identity = { provider: string; providerId: string; email?: string; name?: string; picture?: string };
-type User = { userId: string; email?: string; name?: string; picture?: string; providers: { provider: string; providerUserId: string }[]; passwordHash?: string; createdAt: string; merchantProfile?: any };
+ type User = { userId: string; email?: string; name?: string; picture?: string; providers: { provider: string; providerUserId: string }[]; passwordHash?: string; createdAt: string; merchantProfile?: any; isVerified?: boolean };
 
 const readBody = async (req: any) => {
   if (req.body) return req.body;
@@ -15,7 +15,11 @@ const readBody = async (req: any) => {
   try { return JSON.parse(raw || '{}'); } catch { return {}; }
 };
 
-const getEnv = (k: string) => process.env[k] || '';
+const getEnv = (k: string) => {
+  const v = process.env[k] || '';
+  if (!v && k === 'JWT_SECRET') return 'venty_dev_secret';
+  return v;
+};
 
 const getMerchantProfile = (userId: string, email?: string) => {
     try {

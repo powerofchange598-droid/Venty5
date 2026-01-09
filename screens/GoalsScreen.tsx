@@ -150,7 +150,7 @@ const PortfolioOverviewCard: React.FC = () => {
     const { formatCurrency } = useLocalization();
     const { theme } = useTheme();
     const data = useMemo(() => Array.from({ length: 20 }, (_, i) => ({ name: `p${i}`, value: 53800 + Math.sin(i / 3) * 300 + Math.random() * 200 })), []);
-    const themeColor = theme === 'dark' ? '#D6AF63' : theme === 'trader' ? '#E53935' : '#3A7BFF';
+    const themeColor = theme === 'dark-gold' ? '#D6AF63' : theme === 'dark-red' ? '#E53935' : '#4169E1';
 
     return (
         <Card className="!p-6 card-border-accent">

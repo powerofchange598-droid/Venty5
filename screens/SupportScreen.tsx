@@ -153,7 +153,7 @@ const ContactForm: React.FC<{ user: User; onSubmit: (ticket: Partial<SupportTick
                 {errors.message && <p className="text-xs text-feedback-error mt-1">{errors.message}</p>}
             </div>
 
-            <VentyButton htmlType="submit" className="w-full" disabled={isSubmitting}>
+            <VentyButton htmlType="submit" className="w-full" disabled={isSubmitting} onClick={() => {}}>
                 {isSubmitting ? 'Submitting...' : 'Submit Ticket'}
             </VentyButton>
         </form>

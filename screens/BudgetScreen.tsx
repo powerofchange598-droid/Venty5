@@ -71,7 +71,7 @@ interface TableRowProps {
 }
 
 const TableRow: React.FC<TableRowProps> = ({ label, budget, actual, isTotal, hasCheckbox, formatCurrency, editable, onChange, onDelete }) => {
-    const { toEnglishDigits } = useLocalization();
+    const {} = useLocalization();
     const [localLabel, setLocalLabel] = useState(label);
     const [localBudget, setLocalBudget] = useState(budget);
     const [localActual, setLocalActual] = useState(actual);
@@ -102,7 +102,7 @@ const TableRow: React.FC<TableRowProps> = ({ label, budget, actual, isTotal, has
                     <input
                         type="number"
                         value={localBudget}
-                        onChange={(e) => setLocalBudget(Number(toEnglishDigits(e.target.value)))}
+                        onChange={(e) => setLocalBudget(Number(e.target.value))}
                         onBlur={commit}
                         className="w-full text-right bg-transparent border-b border-border-primary focus:outline-none"
                     />
@@ -116,7 +116,7 @@ const TableRow: React.FC<TableRowProps> = ({ label, budget, actual, isTotal, has
                         <input
                             type="number"
                             value={localActual}
-                            onChange={(e) => setLocalActual(Number(toEnglishDigits(e.target.value)))}
+                            onChange={(e) => setLocalActual(Number(e.target.value))}
                             onBlur={commit}
                             className="w-full text-right bg-transparent border-b border-border-primary focus:outline-none"
                         />
@@ -325,7 +325,7 @@ const BudgetScreen: React.FC<BudgetScreenProps> = ({ user, initialBudget, fixedE
                                         <input
                                             type="number"
                                             value={cat.allocated}
-                                            onChange={(e) => setExpenseRows(prev => prev.map(x => x.id === cat.id ? { ...x, allocated: Number(toEnglishDigits(e.target.value)) } : x))}
+                                            onChange={(e) => setExpenseRows(prev => prev.map(x => x.id === cat.id ? { ...x, allocated: Number(e.target.value) } : x))}
                                             className="w-16 text-right bg-transparent border-b border-border-primary focus:outline-none"
                                         />
                                     </div>

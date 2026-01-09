@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { User } from '../../types';
-import Card from '../../components/Card';
-import VentyButton from '../../components/VentyButton';
-import ShareModal from '../../components/ShareModal';
-import MerchantPageLayout from '../../components/merchant/MerchantPageLayout';
-import SmartNudge from '../../components/merchant/SmartNudge'; 
-import MerchantVerificationCard from '../../components/merchant/MerchantVerificationCard'; 
+import { User } from '../types';
+import Card from '../components/Card';
+import VentyButton from '../components/VentyButton';
+import ShareModal from '../components/ShareModal';
+import MerchantPageLayout from '../components/merchant/MerchantPageLayout';
+import SmartNudge from '../components/merchant/SmartNudge'; 
+import MerchantVerificationCard from '../components/merchant/MerchantVerificationCard'; 
 import { CubeIcon, ShoppingBagIcon, BanknotesIcon, UsersIcon, CheckBadgeIcon, ShareIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { mockMerchant } from '../../data/mockData';
-import { useLocalization } from '../../hooks/useLocalization';
+import { mockMerchant } from '../data/mockData';
+import { useLocalization } from '../hooks/useLocalization';
 
 interface MerchantDashboardScreenProps {
     user: User;

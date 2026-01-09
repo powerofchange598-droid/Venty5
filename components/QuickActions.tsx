@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MinusCircleIcon, ArrowUpCircleIcon, ChartPieIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { BudgetCategory, ExpenseData, IncomeData } from '../types';
 import VentyButton from './VentyButton';
+import { useLocalization } from '../hooks/useLocalization';
 
 // --- PROPS ---
 interface QuickActionsProps {
@@ -16,13 +17,13 @@ interface QuickActionsProps {
 const backdropVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1 },
-};
+} as any;
 
 const modalVariants = {
     hidden: { opacity: 0, y: 50, scale: 0.95 },
     visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', damping: 25, stiffness: 300 } },
     exit: { opacity: 0, y: 50, scale: 0.95, transition: { duration: 0.2 } },
-};
+} as any;
 
 // --- ACTION BUTTON ---
 const ActionButton: React.FC<{
@@ -34,8 +35,8 @@ const ActionButton: React.FC<{
     <motion.button
         onClick={onClick}
         className={`flex flex-col items-center justify-center space-y-2 p-4 rounded-2xl font-semibold transition-all ${colorClasses}`}
-        whileHover={{ scale: 1.05, filter: 'brightness(0.97)' }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.05, filter: 'brightness(0.97)' } as any}
+        whileTap={{ scale: 0.95 } as any}
     >
         <Icon className="h-6 w-6 sm:h-8 sm:h-8" />
         <span className="text-sm">{label}</span>
@@ -88,7 +89,7 @@ const ExpenseForm: React.FC<{
     onSubmit: (data: ExpenseData) => void;
     onClose: () => void;
 }> = ({ categories, onSubmit, onClose }) => {
-    const { toEnglishDigits } = useLocalization() as any;
+    const {} = useLocalization() as any;
     const [amount, setAmount] = useState('');
     const [category, setCategory] = useState(categories[0]?.name || '');
     const [date, setDate] = useState(todayISO);
@@ -106,6 +107,7 @@ const ExpenseForm: React.FC<{
             category: category.trim(),
             date,
             notes,
+            expType: 'variable',
         });
         onClose();
     };
@@ -114,7 +116,7 @@ const ExpenseForm: React.FC<{
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
                 <label className="font-medium text-sm">Amount</label>
-                <input type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(toEnglishDigits ? toEnglishDigits(e.target.value) : e.target.value)} placeholder="0.00" required className="w-full mt-1 p-3 bg-ui-background rounded-lg border border-ui-border"/>
+                <input type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" required className="w-full mt-1 p-3 bg-ui-background rounded-lg border border-ui-border"/>
             </div>
             <div>
                 <label className="font-medium text-sm">Category</label>
@@ -153,6 +155,7 @@ const IncomeForm: React.FC<{
             source,
             date,
             notes,
+            recurring: false,
         });
         onClose();
     };

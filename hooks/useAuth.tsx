@@ -43,14 +43,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
-  const refreshSession = useCallback(async () => {
+  const refreshSessionInternal = useCallback(async (signal?: AbortSignal) => {
     const token = localStorage.getItem('ventyAuthToken');
 
     try {
       const res = await fetch(`${API_BASE}/api/auth/me`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: 'include',
+        signal
       });
-      const data = await res.json();
+      const isNoContent = res.status === 204;
+      const ct = res.headers.get('content-type') || '';
+      const data = (!isNoContent && ct.includes('application/json')) ? await res.json().catch(() => ({})) : {};
       
       if (data.ok && data.user) {
         const base = user || mockUser;
@@ -67,26 +71,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         const nextToken = data.token || token || '';
         if (nextToken) saveSession(fullUser, nextToken); else setUser(fullUser);
-        const pic = fullUser.profilePictureUrl || '';
-        if (/^https?:/i.test(pic) && !pic.startsWith('data:')) {
-          try {
-            const resp = await fetch(pic, { mode: 'cors' });
-            const blob = await resp.blob();
-            const reader = new FileReader();
-            const dataUrl: string = await new Promise(resolve => {
-              reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
-              reader.readAsDataURL(blob);
-            });
-            const patched = { ...fullUser, profilePictureUrl: dataUrl };
-            if (nextToken) saveSession(patched, nextToken); else setUser(patched);
-          } catch {}
-        }
+        
       } else {
-        // Token invalid
-        clearSession();
+        if ((res as any)?.status === 401) {
+          clearSession();
+        } else {
+          // Keep local session if backend is offline or returned non-JSON
+        }
       }
     } catch (e) {
-      console.error("Session check failed", e);
+      if ((e as any)?.name === 'AbortError') {
+        // Aborted due to navigation/unmount in Strict Mode
+      } else {
+        console.error("Session check failed", e);
+      }
       // On error (e.g. network), we might want to keep the local user?
       // But if 401, we should clear.
       // api/auth/me returns {ok:false} on 401 caught internally, so we handled it above.
@@ -95,13 +93,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [API_BASE, user]);
 
+  const refreshSession = useCallback(async () => {
+    const controller = new AbortController();
+    await refreshSessionInternal(controller.signal);
+  }, [refreshSessionInternal]);
+
   // 1. Initial Session Check
   useEffect(() => {
-    let canceled = false;
-    refreshSession().then(() => {
-       if (canceled) return;
-    });
-    return () => { canceled = true; };
+    const controller = new AbortController();
+    refreshSessionInternal(controller.signal);
+    return () => { controller.abort(); };
   }, []); // Run once on mount (and if API_BASE changes)
 
   // 2. Global Logout Listener (for 401s from api.ts)

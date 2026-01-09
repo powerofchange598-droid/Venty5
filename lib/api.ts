@@ -7,15 +7,6 @@ const API_BASE = (() => {
   const envBase = (typeof process !== 'undefined' && (process as any).env?.API_BASE_URL) || '';
   if (viteBase) return viteBase;
   if (envBase) return envBase;
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    const scheme = window.location.protocol;
-    const isProd = (typeof import.meta !== 'undefined' && (import.meta as any).env?.MODE) === 'production' || (typeof process !== 'undefined' && (process as any).env?.NODE_ENV) === 'production';
-    if (isProd && host === 'localhost') {
-      return ''; // rely on same-origin reverse proxy in production builds
-    }
-    return `${scheme}//${host}:8081`;
-  }
   return '';
 })();
 
@@ -38,18 +29,28 @@ const headers = () => {
 const request = async (path: string, init?: RequestInit) => {
   try {
     const base = API_BASE || '';
-    const res = await fetch(`${base}/api${path}`, {
+    const urlPath = `/api${path}`;
+    const res = await fetch(`${base}${urlPath}`, {
       method: 'GET',
       ...init,
       headers: { ...headers(), ...(init?.headers || {}) },
       credentials: 'include',
     });
-    if (res.status === 401) {
+    if (res.status === 401 && path === '/auth/me') {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('auth:logout'));
       }
     }
-    const data = await res.json().catch(() => ({}));
+    let data: any = null;
+    if (res.status !== 204) {
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        data = await res.json().catch(() => ({}));
+      } else {
+        const text = await res.text().catch(() => '');
+        try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+      }
+    }
     return { ok: res.ok, status: res.status, data };
   } catch (e) {
     return { ok: false, status: 0, data: null, error: (e as Error).message };

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 const useIdleTimeout = (onIdle: () => void, idleTime: number, enabled: boolean = true) => {
-    const timeoutId = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const timeoutId = useRef<number | null>(null);
 
     useEffect(() => {
         if (!enabled) {

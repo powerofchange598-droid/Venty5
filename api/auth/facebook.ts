@@ -21,7 +21,7 @@ export default async function handler(req: any, res: any) {
         email: user.email,
         name: user.name,
         picture: user.picture,
-        role: user.role || 'user',
+        role: 'user',
         provider: 'facebook'
     };
     const jwt = await signSession(sessionPayload);

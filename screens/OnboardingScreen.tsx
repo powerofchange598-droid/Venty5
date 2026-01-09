@@ -83,7 +83,7 @@ const ProgressBar: React.FC<{ current: number; total: number }> = ({ current, to
     </div>
 );
 
-const PersonalOnboardingForm: React.FC<{ onNext: (data: Omit<OnboardingData, 'accountPlan' | 'primarySpendingCategory'>) => void; accountPlan: 'single' | 'family'; initialData?: { name: string; email: string } | null }> = ({ onNext, accountPlan, initialData }) => {
+const PersonalOnboardingForm: React.FC<{ onNext: (data: Omit<OnboardingData, 'accountPlan' | 'primarySpendingCategory'>) => void; accountPlan: 'single' | 'family'; initialData?: { name: string; email: string } | null; onSignUp?: (email: string, password: string) => Promise<boolean> }> = ({ onNext, accountPlan, initialData, onSignUp }) => {
     const { t } = useTranslation();
     const isSocialSignup = !!initialData;
     const [name, setName] = useState(initialData?.name || '');
@@ -171,9 +171,8 @@ const PersonalOnboardingForm: React.FC<{ onNext: (data: Omit<OnboardingData, 'ac
             }
         }
         try {
-            const backend = (import.meta as any).env?.VITE_PAYPAL_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}:8080`;
             const userId = email || 'anon';
-            await fetch(`${backend}/api/users/${encodeURIComponent(userId)}/profile`, {
+            await fetch(`/api/users/${encodeURIComponent(userId)}/profile`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ country: nextData.country, countryCode: nextData.countryCode, currency: nextData.currency })
@@ -669,7 +668,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onJoinF
                 );
             case 'accountType': return <AccountTypeSelection onSelect={handleAccountTypeSelect} />;
             case 'lifestyleQuiz': return <LifestyleQuizStep onNext={handleLifestyleQuizNext} />;
-            case 'personal': return <PersonalOnboardingForm onNext={handlePersonalFormNext} accountPlan={accountPlan} initialData={socialData} />;
+            case 'personal': return <PersonalOnboardingForm onNext={handlePersonalFormNext} accountPlan={accountPlan} initialData={socialData} onSignUp={onSignUp} />;
             case 'joinFamily': return <JoinFamilyForm onJoin={onJoinFamily} />;
             case 'loginEmail': return <LoginEmailForm onLoggedIn={(email) => { setSocialData({ name: '', email }); setView('accountType'); }} />;
             case 'terms': return <TermsView onAccept={handleTermsAccept} />;

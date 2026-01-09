@@ -32,7 +32,18 @@ const MerchantVerificationCard: React.FC<MerchantVerificationCardProps> = ({ use
     }, []);
     const [selectedGateway, setSelectedGateway] = useState<'card' | 'paypal'>('card');
 
-    const handlePayCard = () => {
+    const handlePayCard = async () => {
+        try {
+            const resp = await fetch(`/api/health`);
+            const ok = resp.ok;
+            if (!ok) {
+                alert('Payments are currently disabled.');
+                return;
+            }
+        } catch {
+            alert('Payments are currently disabled.');
+            return;
+        }
         navigate('/payment', { 
             state: { 
                 for: 'merchant_verification', 

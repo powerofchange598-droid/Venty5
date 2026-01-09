@@ -162,19 +162,29 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ user, onPaymentSuccess })
         }
     }, [location.state, navigate]);
 
+    const [backendReady, setBackendReady] = useState<boolean | null>(null);
     useEffect(() => {
+        let cancelled = false;
         (async () => {
             try {
-                const backendEnv: string = (import.meta as any).env?.VITE_PAYPAL_BACKEND_URL || '';
-                const fallback = `${window.location.protocol}//${window.location.hostname}:8080`;
-                const backend: string = backendEnv || fallback;
-                const resp = await fetch(`${backend}/api/promo-codes/active/${safeUserId}`);
-                const data = await resp.json();
-                if (resp.ok && data.ok) {
-                    setActivePromoPercent(Number(data.bestPercent || 0));
+                const resp = await fetch(`/api/health`);
+                const data = await resp.json().catch(() => ({}));
+                const ready = resp.ok && !!data?.ok;
+                if (!cancelled) setBackendReady(ready);
+                if (ready) {
+                    try {
+                        const activeResp = await fetch(`/api/promo-codes/active/${safeUserId}`);
+                        const activeData = await activeResp.json().catch(() => ({}));
+                        if (activeResp.ok && activeData.ok) {
+                            setActivePromoPercent(Number(activeData.bestPercent || 0));
+                        }
+                    } catch {}
                 }
-            } catch {}
+            } catch {
+                if (!cancelled) setBackendReady(false);
+            }
         })();
+        return () => { cancelled = true; };
     }, [safeUserId]);
 
     const applyPromo = async () => {
@@ -182,10 +192,12 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ user, onPaymentSuccess })
         setPromoMessage('');
         setPromoError(false);
         try {
-            const backendEnv: string = (import.meta as any).env?.VITE_PAYPAL_BACKEND_URL || '';
-            const fallback = `${window.location.protocol}//${window.location.hostname}:8081`;
-            const backend: string = backendEnv || fallback;
-            const resp = await fetch(`${backend}/api/promo-codes/apply`, {
+            if (!backendReady) {
+                setPromoMessage('Promo service is offline.');
+                setPromoError(true);
+                return;
+            }
+            const resp = await fetch(`/api/promo-codes/apply`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code: promoInput.trim(), userId: safeUserId })
@@ -310,7 +322,11 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ user, onPaymentSuccess })
                                 </div>
                             )}
                             <p className="text-sm text-text-secondary mb-4">You will be securely redirected to PayPal to complete your purchase. Your financial information is not shared with Venty.</p>
-                            {discountedAmount <= 0 ? (
+                            {backendReady === false ? (
+                                <div className="bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 p-3 rounded-lg mb-4 text-sm font-medium text-center">
+                                    Payments are temporarily disabled. Please try again later.
+                                </div>
+                            ) : discountedAmount <= 0 ? (
                                 <VentyButton className="w-full" variant="primary" label="Complete Free Purchase" onClick={() => setShowConfirmation(true)} />
                             ) : (
                                 <PayPalButton 

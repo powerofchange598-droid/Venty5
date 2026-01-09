@@ -122,7 +122,7 @@ const PayPalButton: React.FC<PayPalButtonProps> = ({ amount, description, onSucc
                     <PayPalButtons
                         style={{
                             layout: "vertical",
-                            color: theme === 'dark' ? 'gold' : 'blue',
+                            color: theme === 'dark-gold' ? 'gold' : theme === 'dark-red' ? 'silver' : 'blue',
                             shape: "rect",
                             label: "pay"
                         }}

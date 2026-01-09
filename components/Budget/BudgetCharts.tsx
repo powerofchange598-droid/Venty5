@@ -5,9 +5,9 @@ import Card from '../Card';
 import { useTheme } from '../../hooks/useTheme';
 import { useLocalization } from '../../hooks/useLocalization';
 
-// Updated colors to match the new Royal Blue / Gold theme
-const getThemeColors = (theme: 'light' | 'dark' | 'trader') => {
-    if (theme === 'dark') {
+// Updated colors to match Royal Blue (light), Gold (dark), Red (dark)
+const getThemeColors = (theme: 'light' | 'dark-gold' | 'dark-red') => {
+    if (theme === 'dark-gold') {
         return {
             primary: '#D6AF63',
             secondary: '#B68C43',
@@ -19,7 +19,7 @@ const getThemeColors = (theme: 'light' | 'dark' | 'trader') => {
             warning: '#F59E0B',
         };
     }
-    if (theme === 'trader') {
+    if (theme === 'dark-red') {
         return {
             primary: '#E53935',
             secondary: '#C62828',

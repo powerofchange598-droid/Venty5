@@ -39,6 +39,7 @@ const HAS_CREDENTIALS = !!(PAYPAL_CLIENT_ID && PAYPAL_SECRET);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, 'data');
+const ASSETS_DIR = path.join(DATA_DIR, 'assets');
 
 const PROMO_CODES_FILE = path.join(DATA_DIR, 'promo-codes.json');
 const PROMO_USAGE_FILE = path.join(DATA_DIR, 'promo-usage.json');
@@ -66,6 +67,45 @@ app.use(cors({
   allowedHeaders: ['Authorization', 'Content-Type'],
   credentials: true
 }));
+
+// Static assets
+try {
+  if (!fs.existsSync(ASSETS_DIR)) fs.mkdirSync(ASSETS_DIR, { recursive: true });
+} catch {}
+app.use('/assets', express.static(ASSETS_DIR));
+
+app.get('/assets/video/:name', (req, res) => {
+  try {
+    const name = String(req.params.name || '');
+    const file = path.join(ASSETS_DIR, name);
+    if (!fs.existsSync(file)) return res.status(404).end();
+    const stat = fs.statSync(file);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunkSize = (end - start) + 1;
+      const stream = fs.createReadStream(file, { start, end });
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': 'video/mp4',
+      });
+      stream.pipe(res);
+    } else {
+      res.writeHead(200, {
+        'Content-Length': fileSize,
+        'Content-Type': 'video/mp4',
+      });
+      fs.createReadStream(file).pipe(res);
+    }
+  } catch {
+    res.status(500).end();
+  }
+});
 
 // --- Helpers ---
 function loadJson(file: string, fallback: any) {
@@ -344,7 +384,31 @@ app.delete('/api/users/:userId', (req, res) => {
 
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, env: process.env.NODE_ENV || 'development' });
+  res.json({ ok: true, env: process.env.NODE_ENV || 'development', hasCredentials: HAS_CREDENTIALS });
+});
+
+// --- Asset Upload (Base64 Data URL) ---
+app.post('/api/assets/upload', (req, res) => {
+  try {
+    const { dataUrl, filename } = req.body || {};
+    if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
+      return res.status(400).json({ ok: false, error: 'invalid_data_url' });
+    }
+    const m = dataUrl.match(/^data:(.+?);base64,(.+)$/);
+    if (!m) return res.status(400).json({ ok: false, error: 'invalid_data_url_format' });
+    const mime = m[1];
+    const base64 = m[2];
+    const buf = Buffer.from(base64, 'base64');
+    const ext = mime === 'image/png' ? 'png' : mime === 'image/jpeg' ? 'jpg' : 'bin';
+    const id = `${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
+    const name = (String(filename || '').replace(/[^a-z0-9_\-\.]/gi, '') || `${id}.${ext}`);
+    const file = path.join(ASSETS_DIR, name);
+    fs.writeFileSync(file, buf);
+    const url = `/assets/${name}`;
+    return res.json({ ok: true, url });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: e?.message || 'upload_failed' });
+  }
 });
 
 // --- Auth Routes (Delegate to Vercel Handlers) ---
@@ -474,7 +538,7 @@ function requireMerchant(req: any, res: any, next: any) {
 }
 
 // Update role for current session and return refreshed token
-app.post('/api/auth/role', requireAuth, async (req, res) => {
+app.post('/api/auth/role', requireAuth, async (req: any, res: any) => {
   try {
     const role = String(req.body?.role || '').toLowerCase() === 'merchant' ? 'merchant' : 'user';
     const payload = { userId: req.user.id, email: req.user.email, name: req.user.name, role };
@@ -528,7 +592,7 @@ app.post('/api/market/merchants/:slug/products', requireAuth, requireMerchant, (
       status,
       createdAt,
       merchant: merchant.storeName || merchant.name || slug,
-      imageUrl: String(payload.imageUrl || 'https://picsum.photos/seed/venty-product/300/200'),
+      imageUrl: String(payload.imageUrl || ''),
       category,
       stock: Number(payload.stock) || 0,
       ownerId: String(payload.ownerId || ''),
@@ -1022,7 +1086,7 @@ app.put('/api/market/merchants/:slug', (req, res) => {
   }
 });
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, env: PAYPAL_ENV, hasCredentials: HAS_CREDENTIALS }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, env: process.env.NODE_ENV || 'development', hasCredentials: HAS_CREDENTIALS }));
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT} (TSX)`);

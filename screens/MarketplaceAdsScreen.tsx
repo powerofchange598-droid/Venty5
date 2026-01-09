@@ -2,12 +2,12 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, AdType, MerchantAd, Product, AdSubscription, AdPlanId } from '../../types';
-import { mockProducts } from '../../data/mockData';
-import Card from '../../components/Card';
-import VentyButton from '../../components/VentyButton';
-import MerchantPageLayout from '../../components/merchant/MerchantPageLayout';
-import { useLocalization } from '../../hooks/useLocalization';
+import { User, AdType, MerchantAd, Product, AdSubscription, AdPlanId } from '../types';
+import { mockProducts } from '../data/mockData';
+import Card from '../components/Card';
+import VentyButton from '../components/VentyButton';
+import MerchantPageLayout from '../components/merchant/MerchantPageLayout';
+import { useLocalization } from '../hooks/useLocalization';
 import {
     PlusIcon, XMarkIcon, EyeIcon, PhotoIcon, CubeIcon, VideoCameraIcon,
     BuildingStorefrontIcon, CalendarDaysIcon, CheckCircleIcon, SparklesIcon,
@@ -45,9 +45,9 @@ const adTypes: AdTypeInfo[] = [
 ];
 
 const packages: AdPackage[] = [
-    { id: 'basic', name: 'Basic Plan', price: 10, durationDays: 30 },
-    { id: 'pro', name: 'Pro Plan', price: 25, durationDays: 30 },
-    { id: 'premium', name: 'Premium Plan', price: 50, durationDays: 30 },
+    { id: 'basic', name: 'Basic Plan', price: 5, durationDays: 30 },
+    { id: 'pro', name: 'Pro Plan', price: 15, durationDays: 30 },
+    { id: 'premium', name: 'Premium Plan', price: 25, durationDays: 30 },
 ];
 
 const analyticsData: AnalyticsData[] = [
@@ -166,29 +166,32 @@ const ConfirmationModal: React.FC<{ subscription: AdSubscription; onClose: () =>
 
 // --- CAMPAIGNS & ANALYTICS ---
 
-const AdCampaignsSection: React.FC<{ ads: MerchantAd[]; onCreateClick: () => void; subscription: AdSubscription }> = ({ ads, onCreateClick, subscription }) => (
-    <Card>
-        <div className="flex justify-between items-center mb-4">
-            <div>
-                <h2 className="text-xl font-bold font-serif">Ad Campaigns</h2>
-                <p className="text-ui-secondary text-sm">Your active plan: <span className="font-bold text-brand-primary">{subscription.name}</span></p>
+const AdCampaignsSection: React.FC<{ ads: MerchantAd[]; onCreateClick: () => void; subscription: AdSubscription }> = ({ ads, onCreateClick, subscription }) => {
+    const { formatNumberEn } = useLocalization();
+    return (
+        <Card>
+            <div className="flex justify-between items-center mb-4">
+                <div>
+                    <h2 className="text-xl font-bold font-serif">Ad Campaigns</h2>
+                    <p className="text-ui-secondary text-sm">Your active plan: <span className="font-bold text-brand-primary">{subscription.name}</span></p>
+                </div>
+                <VentyButton onClick={onCreateClick} className="!w-auto !py-2 !px-3 !text-sm flex items-center space-x-1 btn-gradient-success">
+                    <PlusIcon className="h-5 w-5" /><span>Create New Ad</span>
+                </VentyButton>
             </div>
-            <VentyButton onClick={onCreateClick} className="!w-auto !py-2 !px-3 !text-sm flex items-center space-x-1 btn-gradient-success">
-                <PlusIcon className="h-5 w-5" /><span>Create New Ad</span>
-            </VentyButton>
-        </div>
-        {ads.length === 0 ? (
-            <p className="text-ui-secondary text-center py-8">You have no active ad campaigns.</p>
-        ) : (
-            <div className="space-y-3">
-                {ads.map(ad => {
-                    const product = ad.adType === 'product' ? mockProducts.find(p => p.id === ad.content.productId) : null;
-                    return <Card key={ad.id} className="!p-3 flex items-center space-x-3 bg-ui-background"><div className="w-16 h-16 bg-ui-border rounded-lg flex-shrink-0"><img src={product?.imageUrl || ad.content.imageUrl || ''} className="w-full h-full object-cover rounded-lg"/></div><div className="flex-grow"><p className="font-bold">{product?.title || ad.content.caption || ad.adType.replace('_', ' ')}</p><p className="text-sm capitalize text-ui-secondary">{ad.adType.replace('_', ' ')}</p></div><div className="text-right"><p className="font-semibold text-feedback-success">Impressions: {formatNumberEn(ad.impressions)}</p><p className="text-sm">Clicks: {formatNumberEn(ad.clicks)}</p></div></Card>;
-                })}
-            </div>
-        )}
-    </Card>
-);
+            {ads.length === 0 ? (
+                <p className="text-ui-secondary text-center py-8">You have no active ad campaigns.</p>
+            ) : (
+                <div className="space-y-3">
+                    {ads.map(ad => {
+                        const product = ad.adType === 'product' ? mockProducts.find(p => p.id === ad.content.productId) : null;
+                        return <Card key={ad.id} className="!p-3 flex items-center space-x-3 bg-ui-background"><div className="w-16 h-16 bg-ui-border rounded-lg flex-shrink-0"><img src={product?.imageUrl || ad.content.imageUrl || ''} className="w-full h-full object-cover rounded-lg"/></div><div className="flex-grow"><p className="font-bold">{product?.title || ad.content.caption || ad.adType.replace('_', ' ')}</p><p className="text-sm capitalize text-ui-secondary">{ad.adType.replace('_', ' ')}</p></div><div className="text-right"><p className="font-semibold text-feedback-success">Impressions: {formatNumberEn(ad.impressions)}</p><p className="text-sm">Clicks: {formatNumberEn(ad.clicks)}</p></div></Card>;
+                    })}
+                </div>
+            )}
+        </Card>
+    );
+};
 
 const AnalyticsDashboard: React.FC<{ ads: MerchantAd[]; user: User }> = ({ ads, user }) => {
     const { formatCurrencyEn, formatNumberEn } = useLocalization();

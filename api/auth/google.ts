@@ -17,6 +17,7 @@ export default async function handler(req: any, res: any) {
     baseUrl = baseUrl.replace(/\/$/, '');
 
     const redirectUri = `${baseUrl}/api/auth/google`;
+    const clientUrl = getEnv('CLIENT_BASE_URL') || baseUrl;
 
     if (!clientId || !clientSecret) {
       console.error('Google Auth: Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
@@ -107,7 +108,7 @@ export default async function handler(req: any, res: any) {
         // Redirect back to app
         const returnTo = state && /^\/[a-zA-Z0-9_\-\/?=&.]*$/.test(state) ? state : '/';
         res.statusCode = 302;
-        res.setHeader('Location', `${baseUrl}${returnTo}`);
+        res.setHeader('Location', `${clientUrl}${returnTo}`);
         res.end();
         return;
 

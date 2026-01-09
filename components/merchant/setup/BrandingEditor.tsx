@@ -38,7 +38,27 @@ const BrandingEditor: React.FC<BrandingEditorProps> = ({ currentConfig, onSave }
             </div>
             <div>
                 <label className="font-medium text-sm block mb-2">Store Logo</label>
-                <ImageUpload onFileSelect={(file) => file && setLogoUrl(URL.createObjectURL(file))} currentImageUrl={logoUrl} />
+                <ImageUpload onFileSelect={async (file) => {
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                        const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+                        if (!dataUrl) return;
+                        try {
+                            const resp = await fetch(`/api/assets/upload`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ dataUrl, filename: file.name }),
+                            });
+                            const json = await resp.json();
+                            if (resp.ok && json?.ok && json?.url) {
+                                setLogoUrl(json.url);
+                                handleBrandingChange('logoUrl', json.url as any);
+                            }
+                        } catch {}
+                    };
+                    reader.readAsDataURL(file);
+                }} currentImageUrl={logoUrl} />
             </div>
             <div>
                 <label className="font-medium text-sm">Font Pair</label>
