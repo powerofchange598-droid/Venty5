@@ -17,7 +17,7 @@ if (!token) {
 
 try {
     // Update remote URL with token
-    const newUrl = `https://${token}@github.com/sorrymaster66-eng/venty.git`;
+    const newUrl = `https://${token}@github.com/powerofchange598-droid/Venty5.git`;
     execSync(`git remote set-url origin "${newUrl}"`, { encoding: 'utf8' });
     
     console.log('✅ Token authentication configured!');
