@@ -18,6 +18,8 @@
     "github:connect": "node connect-to-github.js",
     "github:token": "node github-token-solution.js",
     "github:final": "node final-github-setup.js",
+    "github:fix": "node fix-github-auth.js",
+    "github:get-token": "node get-token-guide.js",
     "setup:token": "node setup-my-token.js"
   },
   "dependencies": {
