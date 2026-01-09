@@ -13,7 +13,12 @@
     "sync:setup": "node setup-sync.js",
     "sync:start": "start-sync.bat",
     "sync:stop": "taskkill /f /im node.exe",
-    "sync:log": "type sync-log.txt"
+    "sync:log": "type sync-log.txt",
+    "github:setup": "node complete-setup.js",
+    "github:connect": "node connect-to-github.js",
+    "github:token": "node github-token-solution.js",
+    "github:final": "node final-github-setup.js",
+    "setup:token": "node setup-my-token.js"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
